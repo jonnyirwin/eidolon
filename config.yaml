@@ -1,0 +1,288 @@
+# Phantom — Ergogen recreation (faithful baseline)
+#
+# Recreates davidphilipbarr/Phantom (single reversible Choc board) as a
+# standard mirrored left/right pair in Ergogen.
+#
+# Source of truth for geometry: lephantom.kicad_pcb switch coordinates
+# (idealised into clean stagger/spread/splay — matches originals to <1 mm).
+# Source of truth for wiring: jonnyirwin/phantom_qmk_config (QMK DIRECT_PINS).
+#
+# Baseline = original hardware: Pro Micro, TRRS split, hotswap Choc, NO diodes
+# (each switch wired straight to one Pro Micro GPIO + GND), reset button.
+# Trackball intentionally omitted.
+#
+# Pin map: QMK atmega label -> Arduino Pro Micro pin -> Ergogen promicro net.
+#   E6=P7  F7=P18 F6=P19 F5=P20 F4=P21  B1=P15 B3=P14 B2=P16 B6=P10
+#   D7=P6  D4=P4  C6=P5  D3=P3  B4=P8  B5=P9   (serial D2=P2)
+
+units:
+  # Kailh Choc v1 spacing used by the Phantom
+  kx: 18
+  ky: 17
+  # keycap preview size
+  capx: 17.5
+  capy: 16.5
+
+points:
+  zones:
+    # Straight columns (no splay). Anchor origin = middle-bottom key.
+    # The splayed pinky/ring columns live in their own zones (below) so their
+    # rotation does not cascade into these straight columns.
+    matrix:
+      key:
+        padding: ky
+        spread: kx
+        width: capx
+        height: capy
+        tags:
+          key: true
+      columns:
+        middle:
+          key.stagger: 0
+          rows:
+            bottom: { pin: P4 }    # D4
+            home:   { pin: P16 }   # B2
+            top:    { pin: P19 }   # F6
+        index:
+          key.stagger: -3.6
+          rows:
+            bottom: { pin: P5 }    # C6
+            home:   { pin: P10 }   # B6
+            top:    { pin: P20 }   # F5
+        inner:
+          key.stagger: 8.3       # cumulative: +4.7 absolute after index's -3.6
+          rows:
+            bottom: { pin: P3 }    # D3  (lower)
+            home:   { pin: P21 }   # F4  (upper)
+    # Ring column: rigid 3° splay, pivoting about its bottom key.
+    ring:
+      anchor:
+        ref: matrix_middle_bottom
+        shift: [-18.3, -3.15]
+        rotate: 3
+      key:
+        padding: ky
+        spread: kx
+        width: capx
+        height: capy
+        tags:
+          key: true
+      columns:
+        ring:
+          rows:
+            bottom: { pin: P6 }    # D7
+            home:   { pin: P14 }   # B3
+            top:    { pin: P18 }   # F7
+    # Pinky column: rigid 5° splay, 2 keys (home + bottom).
+    pinky:
+      anchor:
+        ref: matrix_middle_bottom
+        shift: [-37.0, 0.53]
+        rotate: 5
+      key:
+        padding: ky
+        spread: kx
+        width: capx
+        height: capy
+        tags:
+          key: true
+      columns:
+        pinky:
+          rows:
+            bottom: { pin: P15 }   # B1  (lower)
+            home:   { pin: P7 }    # E6  (upper)
+    # Thumb cluster: 2 keys, rotated -8°, below the index column.
+    thumb:
+      anchor:
+        ref: matrix_index_bottom
+        shift: [6, -20.5]
+        rotate: -8
+      key:
+        padding: ky
+        spread: kx
+        width: capx
+        height: capy
+        tags:
+          key: true
+      columns:
+        left:
+          rows:
+            thumb: { pin: P8 }     # B4
+        right:
+          rows:
+            thumb: { pin: P9 }     # B5
+  # Mirror every point across an axis to the right of the board, creating
+  # `mirror_*` copies for the right half. Ergogen auto-flips footprints/sides.
+  mirror:
+    ref: matrix_middle_bottom
+    shift: [85, 0]
+
+outlines:
+  # raw key footprints (plate cutouts can be derived from these later)
+  _keys:
+    keys:
+      what: rectangle
+      where: true
+      size: [capx, capy]
+  # board / case perimeter — the original lephantom.kicad_pcb Edge.Cuts traced
+  # exactly as line + arc segments, so the rounded corners (R ~9.5-11.6mm) are
+  # reproduced rather than approximated. Expressed relative to the middle-bottom key.
+  board_left:
+    perimeter:
+      what: path
+      segments:
+        - type: line
+          points:
+            - { ref: matrix_middle_bottom, shift: [-36.312, -30.184] }
+            - { ref: matrix_middle_bottom, shift: [43.190, -39.836] }
+        - type: arc
+          points:
+            - { ref: matrix_middle_bottom, shift: [47.498, -38.894] }
+            - { ref: matrix_middle_bottom, shift: [50.914, -36.106] }
+        - type: line
+          points:
+            - { ref: matrix_middle_bottom, shift: [64.272, -7.832] }
+        - type: line
+          points:
+            - { ref: matrix_middle_bottom, shift: [64.188, 26.458] }
+        - type: arc
+          points:
+            - { ref: matrix_middle_bottom, shift: [64.091, 26.944] }
+            - { ref: matrix_middle_bottom, shift: [63.816, 27.356] }
+        - type: line
+          points:
+            - { ref: matrix_middle_bottom, shift: [32.017, 42.159] }
+        - type: arc
+          points:
+            - { ref: matrix_middle_bottom, shift: [29.088, 43.415] }
+            - { ref: matrix_middle_bottom, shift: [25.918, 43.730] }
+        - type: line
+          points:
+            - { ref: matrix_middle_bottom, shift: [-40.376, 41.952] }
+        - type: arc
+          points:
+            - { ref: matrix_middle_bottom, shift: [-46.646, 38.369] }
+            - { ref: matrix_middle_bottom, shift: [-49.102, 31.578] }
+        - type: line
+          points:
+            - { ref: matrix_middle_bottom, shift: [-44.985, -20.939] }
+        - type: arc
+          points:
+            - { ref: matrix_middle_bottom, shift: [-42.022, -26.850] }
+            - { ref: matrix_middle_bottom, shift: [-36.312, -30.184] }
+  # Right half: the same boundary reflected — written against the mirrored origin
+  # (mirror_matrix_middle_bottom) with x negated.
+  board_right:
+    perimeter:
+      what: path
+      segments:
+        - type: line
+          points:
+            - { ref: mirror_matrix_middle_bottom, shift: [36.312, -30.184] }
+            - { ref: mirror_matrix_middle_bottom, shift: [-43.190, -39.836] }
+        - type: arc
+          points:
+            - { ref: mirror_matrix_middle_bottom, shift: [-47.498, -38.894] }
+            - { ref: mirror_matrix_middle_bottom, shift: [-50.914, -36.106] }
+        - type: line
+          points:
+            - { ref: mirror_matrix_middle_bottom, shift: [-64.272, -7.832] }
+        - type: line
+          points:
+            - { ref: mirror_matrix_middle_bottom, shift: [-64.188, 26.458] }
+        - type: arc
+          points:
+            - { ref: mirror_matrix_middle_bottom, shift: [-64.091, 26.944] }
+            - { ref: mirror_matrix_middle_bottom, shift: [-63.816, 27.356] }
+        - type: line
+          points:
+            - { ref: mirror_matrix_middle_bottom, shift: [-32.017, 42.159] }
+        - type: arc
+          points:
+            - { ref: mirror_matrix_middle_bottom, shift: [-29.088, 43.415] }
+            - { ref: mirror_matrix_middle_bottom, shift: [-25.918, 43.730] }
+        - type: line
+          points:
+            - { ref: mirror_matrix_middle_bottom, shift: [40.376, 41.952] }
+        - type: arc
+          points:
+            - { ref: mirror_matrix_middle_bottom, shift: [46.646, 38.369] }
+            - { ref: mirror_matrix_middle_bottom, shift: [49.102, 31.578] }
+        - type: line
+          points:
+            - { ref: mirror_matrix_middle_bottom, shift: [44.985, -20.939] }
+        - type: arc
+          points:
+            - { ref: mirror_matrix_middle_bottom, shift: [42.022, -26.850] }
+            - { ref: mirror_matrix_middle_bottom, shift: [36.312, -30.184] }
+
+pcbs:
+  # Left half places footprints on the source points; right half (phantom_right)
+  # reuses the same definitions with asym=clone / a mirror-name filter, so Ergogen
+  # auto-flips footprint sides and x-offsets onto the mirrored points.
+  phantom_left:
+    outlines:
+      main:
+        outline: board_left
+    footprints:
+      switches:
+        what: choc
+        where: "-/^mirror_/"
+        params: &choc_params
+          reverse: false      # two distinct mirrored boards, not one reversible board
+          hotswap: true
+          keycaps: true
+          from: GND
+          to: "{{pin}}"
+      mcu:
+        what: promicro
+        where: &mcu_where
+          ref: matrix_inner_home
+          shift: [18.5, -13.8]
+          rotate: 90          # portrait, to fit the narrow controller strip
+        params: &mcu_params
+          orientation: down
+      trrs:
+        what: trrs
+        where: &trrs_where
+          ref: matrix_inner_home
+          shift: [26, -35.4]
+          rotate: 90          # jack mouth faces the edge, pads sit inside
+        params: &trrs_params
+          reverse: false
+          A: GND
+          B: P2
+          C: GND
+          D: VCC
+      reset:
+        what: reset_button   # compact SMD reset (footprints/reset_button.js)
+        where: &reset_where
+          ref: matrix_inner_home
+          shift: [-3.7, 12.4]
+        params: &reset_params
+          from: RST
+          to: GND
+  phantom_right:
+    outlines:
+      main:
+        outline: board_right
+    footprints:
+      switches:
+        what: choc
+        where: "/^mirror_/"
+        params: *choc_params
+      mcu:
+        what: promicro
+        where: *mcu_where
+        asym: clone
+        params: *mcu_params
+      trrs:
+        what: trrs
+        where: *trrs_where
+        asym: clone
+        params: *trrs_params
+      reset:
+        what: button
+        where: *reset_where
+        asym: clone
+        params: *reset_params

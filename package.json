@@ -1,0 +1,13 @@
+{
+  "name": "phantom-ergogen",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Ergogen recreation of the Phantom keyboard",
+  "scripts": {
+    "build": "node build.js"
+  },
+  "dependencies": {
+    "ergogen": "^4.2.1",
+    "js-yaml": "^4.1.0"
+  }
+}
