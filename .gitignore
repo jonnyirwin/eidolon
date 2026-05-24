@@ -4,3 +4,7 @@ output/
 # Reference clones (kept locally, not part of this repo)
 phantom-src/
 node_modules/
+
+# OpenSCAD/STL build artifacts
+*.stl
+case/*.png

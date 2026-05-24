@@ -105,6 +105,56 @@ pours copper. After `node build.js`, open the board in KiCad and:
    fill automatically skips the nRF52840 antenna — leave that keepout in place.
 3. **Run DRC** to confirm full connectivity and clearances.
 
+## Case (Totem-style, OpenSCAD)
+
+`case/case_left.scad` is a parametric case that **imports the Ergogen outline
+DXFs** (so it tracks the board). It follows the **Phantom outline/key layout**
+but takes its **proportions from the real Totem BLE STEP** (rim ≈ 14 mm tall,
+sunken switchplate, ~2.4 mm walls — measured in FreeCAD):
+
+- **Top body**: a chamfered shell with a **recessed switchplate** (14 mm Choc
+  holes) set ~`recess` below a **raised rim**, so the key cluster is a sunken
+  recess and the keycaps sit nearly flush with the rim (the Totem look). The
+  controller wing is closed on top; USB cutout at the top edge, power-switch
+  slot on the right.
+- **Bottom**: a **deep tray** (Totem BLE-style, ~5.5 mm) — floor + perimeter
+  walls with an open cavity for the **LiPo battery**; the hotswap sockets hang in
+  the cavity. Chamfered bottom edge.
+- **Join**: four **M2 screw bosses** (posts with pilot holes in the top; clearance
+  + head counterbores on the tray's outer bottom).
+
+Three Ergogen outlines feed it: `plate_left` (board − 14 mm switch holes),
+`socketpockets_left` (socket cutouts), `keyfield_left` (merged key-cluster
+recess). Key params at the top of the .scad: `recess`, `wall`, `chamf`,
+`plate_gap`, `rim_t`.
+
+```sh
+node build.js                                              # regenerate DXFs first
+openscad -o case_preview.png case/case_left.scad           # exploded preview
+openscad -D 'part="bottom"' -o bottom_left.stl case/case_left.scad
+openscad -D 'part="top"'    -o top_left.stl    case/case_left.scad
+```
+
+Key params (top of the .scad): `wall`, `floor_t`, `pcb_t`, `gap`, `plate_t`,
+`sock_d`. Total height ≈ `floor_t + pcb_t + gap + plate_t` ≈ 8 mm.
+
+**Still to do on the case:**
+- **PCB mounting** — the screw posts sit just inside the edge; confirm they clear
+  the PCB or add matching mounting holes in the Ergogen board.
+- **Battery retention** — the cavity is open; add a shelf/retainer for the cell.
+- **USB cutout Z** depends on the pogo/standoff height that lifts the XIAO.
+- **Right half** — generate `*_right` outlines + a mirrored `case_right.scad`.
+- Total height runs taller than the Totem's 12.7 mm because the halves stack
+  (not nested) and assume a real ~3.5 mm cell; pick a thinner cell or nest to
+  match. The real Totem top also has subtle freeform curvature; this matches the
+  construction + proportions with chamfers rather than a full organic sculpt.
+- **Battery** — a LiPo (~3–4 mm) won't fit the 2.2 mm gap under the plate; it
+  needs a floor pocket or a bump-out. Decide cell size/location first.
+- **USB cutout height** — the XIAO sits on pogo pins *above* the PCB, so the USB
+  opening's Z depends on the chosen pogo/standoff height.
+- **Right half** — generate `plate_right`/`socketpockets_right` and a mirrored
+  `case_right.scad` once the left is dialled in.
+
 ## Deviations from the original
 
 - **Mirrored L/R, not a single reversible board.** The original is one PCB

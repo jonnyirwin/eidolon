@@ -223,6 +223,44 @@ outlines:
             - { ref: mirror_matrix_middle_bottom, shift: [42.022, -26.850] }
             - { ref: mirror_matrix_middle_bottom, shift: [36.312, -30.184] }
 
+  # ---- case feature outlines (left half), consumed by case/case_left.scad ----
+  # Top switch plate: board minus 14mm Choc plate cutouts.
+  plate_left:
+    base:
+      what: outline
+      name: board_left
+    holes:
+      what: rectangle
+      where: "-/^mirror_/"
+      size: 14
+      operation: subtract
+  # Hotswap socket cutouts for the FLAT bottom plate: one per key, sized/located
+  # to the Choc hotswap socket (pads + pin holes sit to one side of the switch).
+  socketpockets_left:
+    pk:
+      what: rectangle
+      where: "-/^mirror_/"
+      size: [15, 6.5]
+      corner: 1
+      adjust:
+        shift: [2.5, 4.85]
+  # Merged key-cluster region (keycap rects overlapped into one blob) — the
+  # recess where the sunken keycaps sit nearly flush with the raised case top.
+  keyfield_left:
+    kf:
+      what: rectangle
+      where: "-/^mirror_/"
+      size: [19, 18]
+      corner: 1.5
+  # Per-key keycap openings — the recess is split into wells by thin ribs
+  # (ribs = keyfield minus these openings).
+  keycaps_left:
+    kc:
+      what: rectangle
+      where: "-/^mirror_/"
+      size: [17.6, 16.6]
+      corner: 1
+
 pcbs:
   # Left half places footprints on the source points; right half (phantom_right)
   # reuses the same definitions with asym=clone / a mirror-name filter, so Ergogen
