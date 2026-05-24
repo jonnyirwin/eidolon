@@ -36,10 +36,10 @@ mirrored points (Ergogen auto-flips footprint sides / x-offsets).
 - **Geometry** is reverse-engineered from `lephantom.kicad_pcb` switch
   coordinates, then idealised into clean Ergogen `stagger`/`spread`/`splay`
   parameters. Reconstructed key centres match the original to **< 0.15 mm**.
-- **Wiring** matches the QMK firmware
-  ([jonnyirwin/phantom_qmk_config](https://github.com/jonnyirwin/phantom_qmk_config)),
-  which uses `DIRECT_PINS` — every switch wired straight to one Pro Micro GPIO
-  plus GND, **no diode matrix**.
+- **Wiring** is a COL2ROW diode matrix to a Seeed XIAO nRF52840 (BLE). The
+  original Pro Micro baseline instead matched the QMK firmware
+  ([jonnyirwin/phantom_qmk_config](https://github.com/jonnyirwin/phantom_qmk_config))
+  which used `DIRECT_PINS`; that's preserved in git history.
 
 ### Layout
 
@@ -54,26 +54,56 @@ mirrored points (Ergogen auto-flips footprint sides / x-offsets).
 Pinky splayed 5°, ring splayed 3°; the other columns are straight. Choc
 spacing: 18 mm columns, 17 mm rows.
 
-### Pin map (QMK atmega → Arduino Pro Micro → Ergogen net)
+### Wiring — diode matrix (XIAO BLE)
 
-| Key            | QMK | Ergogen net |
-|----------------|-----|-------------|
-| pinky upper    | E6  | P7  |
-| pinky lower    | B1  | P15 |
-| ring top       | F7  | P18 |
-| ring home      | B3  | P14 |
-| ring bottom    | D7  | P6  |
-| middle top     | F6  | P19 |
-| middle home    | B2  | P16 |
-| middle bottom  | D4  | P4  |
-| index top      | F5  | P20 |
-| index home     | B6  | P10 |
-| index bottom   | C6  | P5  |
-| inner upper    | F4  | P21 |
-| inner lower    | D3  | P3  |
-| thumb left     | B4  | P8  |
-| thumb right    | B5  | P9  |
-| (split serial) | D2  | P2  |
+Each half is an independent wireless unit (its own XIAO + battery, no TRRS).
+COL2ROW diode matrix: the switch joins its column net to a per-key node, and the
+diode joins that node to the row net.
+
+| Matrix | Net | XIAO pin |
+|--------|-----|----------|
+| pinky col   | C0 | D0 |
+| ring col    | C1 | D1 |
+| middle col  | C2 | D2 |
+| index col   | C3 | D3 |
+| inner col   | C4 | D4 |
+| top row     | R0 | D5 |
+| home row    | R1 | D6 |
+| bottom row  | R2 | D7 |
+| thumb row   | R3 | D8 |
+
+Power: battery + → `RAW_BATT` → slide switch → `BATT` → XIAO `B+`; battery − → GND.
+
+> **Verify before fab:** the XIAO pad→pin mapping in `footprints/xiao_pogo.js`
+> assumes the standard castellation mounted face-down; confirm against the XIAO
+> datasheet. The earlier Pro Micro baseline used QMK `DIRECT_PINS` (see git history).
+
+## Finishing in KiCad (routing + ground plane)
+
+Ergogen places footprints and assigns nets only — it neither routes traces nor
+pours copper. After `node build.js`, open the board in KiCad and:
+
+1. **Route** the matrix — by hand, or export **Specctra DSN** → **Freerouting**
+   → import the **`.ses`** session back.
+2. **Add a GND copper pour** on both copper layers, matching the original
+   Phantom's zone (`net 6 "GND"`, `F&B.Cu`):
+
+   | Zone setting          | Value          |
+   |-----------------------|----------------|
+   | Net                   | `GND`          |
+   | Layers                | `F.Cu` + `B.Cu` |
+   | Clearance             | 0.508 mm       |
+   | Minimum width         | 0.254 mm       |
+   | Pad connection        | Thermal relief |
+   | Thermal relief gap    | 0.508 mm       |
+   | Thermal spoke width   | 0.508 mm       |
+   | Remove islands        | Yes            |
+   | Outline hatch (border)| Edge           |
+
+   Draw the zone over the whole board outline on each layer, then **Fill All
+   Zones** (`B`). The XIAO footprint carries a copper-pour **keepout**, so the
+   fill automatically skips the nRF52840 antenna — leave that keepout in place.
+3. **Run DRC** to confirm full connectivity and clearances.
 
 ## Deviations from the original
 
@@ -90,8 +120,18 @@ spacing: 18 mm columns, 17 mm rows.
 ## Planned changes (each on its own commit)
 
 1. ✅ baseline — Pro Micro, TRRS split, direct pins, hotswap Choc
-2. hotswap sockets (already `hotswap: true`; verify socket clearance)
-3. Seeed XIAO nRF52840 BLE + battery (Rufous-style) — **requires a diode matrix**
-   (XIAO has too few GPIO for 15 direct pins)
-4. power switch
-5. Totem-style sandwich case (additional `outlines` layers → DXF/SVG)
+2. ✅ Seeed XIAO nRF52840 BLE (pogo pins, footprint adapted from Rufous) +
+   battery + 3-pin slide power switch, with a COL2ROW diode matrix. TRRS, Pro
+   Micro and the dedicated reset are removed (XIAO uses double-tap reset).
+3. Totem-style 3D-printed clamshell case (top bezel + bottom tray per half),
+   modelled in CAD around `output/outlines/board_*.dxf`. Diodes are mounted
+   **top-side in each Choc south LED gap** and the hotswap sockets are the only
+   thing on the bottom — so the bottom tray needs just **socket pockets** (no
+   diode reliefs), and the diodes stay clear of the switch-swap path.
+
+### Still to refine on the BLE board
+- Verify XIAO pad→pin mapping against the datasheet (`footprints/xiao_pogo.js`).
+- Power-switch edge position — currently top of the controller wing; nudge to the
+  exact case side and extend the outline if the actuator must clear the wall.
+- Battery footprint marks solder pads only; confirm the physical cell fits / mounts.
+- Route the matrix (hand or Freerouting) and add pours, then DRC.

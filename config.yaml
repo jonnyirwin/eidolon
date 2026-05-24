@@ -39,21 +39,24 @@ points:
       columns:
         middle:
           key.stagger: 0
+          key.col_net: C2
           rows:
-            bottom: { pin: P4 }    # D4
-            home:   { pin: P16 }   # B2
-            top:    { pin: P19 }   # F6
+            bottom: { row_net: R2 }
+            home:   { row_net: R1 }
+            top:    { row_net: R0 }
         index:
           key.stagger: -3.6
+          key.col_net: C3
           rows:
-            bottom: { pin: P5 }    # C6
-            home:   { pin: P10 }   # B6
-            top:    { pin: P20 }   # F5
+            bottom: { row_net: R2 }
+            home:   { row_net: R1 }
+            top:    { row_net: R0 }
         inner:
           key.stagger: 8.3       # cumulative: +4.7 absolute after index's -3.6
+          key.col_net: C4
           rows:
-            bottom: { pin: P3 }    # D3  (lower)
-            home:   { pin: P21 }   # F4  (upper)
+            bottom: { row_net: R2 }   # lower
+            home:   { row_net: R1 }   # upper
     # Ring column: rigid 3° splay, pivoting about its bottom key.
     ring:
       anchor:
@@ -69,10 +72,11 @@ points:
           key: true
       columns:
         ring:
+          key.col_net: C1
           rows:
-            bottom: { pin: P6 }    # D7
-            home:   { pin: P14 }   # B3
-            top:    { pin: P18 }   # F7
+            bottom: { row_net: R2 }
+            home:   { row_net: R1 }
+            top:    { row_net: R0 }
     # Pinky column: rigid 5° splay, 2 keys (home + bottom).
     pinky:
       anchor:
@@ -88,9 +92,10 @@ points:
           key: true
       columns:
         pinky:
+          key.col_net: C0
           rows:
-            bottom: { pin: P15 }   # B1  (lower)
-            home:   { pin: P7 }    # E6  (upper)
+            bottom: { row_net: R2 }   # lower
+            home:   { row_net: R1 }   # upper
     # Thumb cluster: 2 keys, rotated -8°, below the index column.
     thumb:
       anchor:
@@ -106,11 +111,13 @@ points:
           key: true
       columns:
         left:
+          key.col_net: C3
           rows:
-            thumb: { pin: P8 }     # B4
+            thumb: { row_net: R3 }   # B4 position
         right:
+          key.col_net: C4
           rows:
-            thumb: { pin: P9 }     # B5
+            thumb: { row_net: R3 }   # B5 position
   # Mirror every point across an axis to the right of the board, creating
   # `mirror_*` copies for the right half. Ergogen auto-flips footprints/sides.
   mirror:
@@ -220,6 +227,11 @@ pcbs:
   # Left half places footprints on the source points; right half (phantom_right)
   # reuses the same definitions with asym=clone / a mirror-name filter, so Ergogen
   # auto-flips footprint sides and x-offsets onto the mirrored points.
+  # Each half is an independent wireless unit: its own XIAO BLE + battery +
+  # power switch (no TRRS). Diode matrix (COL2ROW): switch joins col_net to a
+  # per-key node; the diode joins that node to row_net.
+  # XIAO GPIO: cols C0-C4 -> D0-D4, rows R0-R3 -> D5-D8.
+  # Power: battery+ -> RAW_BATT -> power switch -> BATT -> XIAO B+; battery- -> GND.
   phantom_left:
     outlines:
       main:
@@ -227,41 +239,57 @@ pcbs:
     footprints:
       switches:
         what: choc
-        where: "-/^mirror_/"
+        where: &left_keys "-/^mirror_/"
         params: &choc_params
           reverse: false      # two distinct mirrored boards, not one reversible board
           hotswap: true
           keycaps: true
-          from: GND
-          to: "{{pin}}"
+          from: "{{col_net}}"
+          to: "{{name}}"
+      diodes:
+        what: diode_sod123
+        where: *left_keys
+        adjust:
+          shift: [0, -4.7]
+        params: &diode_params
+          from: "{{name}}"    # COL2ROW: node -> diode -> row
+          to: "{{row_net}}"
       mcu:
-        what: promicro
+        what: xiao_pogo
         where: &mcu_where
           ref: matrix_inner_home
-          shift: [18.5, -13.8]
-          rotate: 90          # portrait, to fit the narrow controller strip
+          shift: [10, -15]
+          rotate: 0           # USB + antenna toward the top edge (USB access + BLE)
         params: &mcu_params
-          orientation: down
-      trrs:
-        what: trrs
-        where: &trrs_where
+          D0: C0
+          D1: C1
+          D2: C2
+          D3: C3
+          D4: C4
+          D5: R0
+          D6: R1
+          D7: R2
+          D8: R3
+          BAT: BATT
+      battery:
+        what: battery
+        where: &battery_where
           ref: matrix_inner_home
-          shift: [26, -35.4]
-          rotate: 90          # jack mouth faces the edge, pads sit inside
-        params: &trrs_params
-          reverse: false
-          A: GND
-          B: P2
-          C: GND
-          D: VCC
-      reset:
-        what: reset_button   # compact SMD reset (footprints/reset_button.js)
-        where: &reset_where
+          shift: [14, -36.7]
+          rotate: 0
+        params: &battery_params
+          P: RAW_BATT
+          N: GND
+      power:
+        what: power_switch
+        where: &power_where
           ref: matrix_inner_home
-          shift: [-3.7, 12.4]
-        params: &reset_params
-          from: RST
-          to: GND
+          shift: [25, -23]
+          rotate: -90         # on the right edge, below the XIAO; actuator overhangs the right side
+        params: &power_params
+          A: RAW_BATT         # from battery +
+          B: BATT             # to XIAO B+
+          C: PWR_NC           # off position (unconnected)
   phantom_right:
     outlines:
       main:
@@ -269,20 +297,26 @@ pcbs:
     footprints:
       switches:
         what: choc
-        where: "/^mirror_/"
+        where: &right_keys "/^mirror_/"
         params: *choc_params
+      diodes:
+        what: diode_sod123
+        where: *right_keys
+        adjust:
+          shift: [0, -4.7]
+        params: *diode_params
       mcu:
-        what: promicro
+        what: xiao_pogo
         where: *mcu_where
         asym: clone
         params: *mcu_params
-      trrs:
-        what: trrs
-        where: *trrs_where
+      battery:
+        what: battery
+        where: *battery_where
         asym: clone
-        params: *trrs_params
-      reset:
-        what: button
-        where: *reset_where
+        params: *battery_params
+      power:
+        what: power_switch
+        where: *power_where
         asym: clone
-        params: *reset_params
+        params: *power_params
