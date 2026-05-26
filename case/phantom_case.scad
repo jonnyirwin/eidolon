@@ -10,7 +10,7 @@
 
 gap    = 0.15;   // PCB-to-inner-wall clearance (per side)
 wall   = 2.0;    // case wall thickness
-height = 16;     // extrusion depth (mm)
+height = 12.5;   // extrusion depth (mm) — matches Totem top shell
 arc_n  = 24;     // points sampled per arc corner
 $fn = 64;
 
