@@ -12,6 +12,15 @@ gap    = 0.15;   // PCB-to-inner-wall clearance (per side)
 wall   = 2.0;    // case wall thickness
 height = 12.5;   // extrusion depth (mm) — matches Totem top shell
 switch = 13.8;   // Choc switch plate cutout (mm square) — Kailh spec / Totem STEP
+// Per-column keycap recess. Depth/corner from Totem STEP; opening sized to the
+// keycap (not the switch) so caps drop in without catching. At 18mm column pitch
+// an 18mm cap leaves no rib, so adjacent column recesses merge into field pockets
+// (as on the Totem, whose real recesses are big multi-column pockets).
+recess_d = 6.85; // recess depth from top (rim->switch-plate in Totem)
+keycap_x = 18.0; // keycap footprint, horizontal
+keycap_y = 17.0; // keycap footprint, vertical
+key_clr  = 0.5;  // extra clearance per side so caps don't catch
+recess_r = 1.6;  // recess corner fillet
 arc_n  = 24;     // points sampled per arc corner
 $fn = 64;
 
@@ -90,6 +99,22 @@ module switch_cutouts()
                 linear_extrude(height + 2)
                     square(switch, center = true);
 
+// 2D rounded keycap-clearance pad for one switch (keycap + clearance, splayed).
+module key_pad(i)
+    translate([switches[i][0], switches[i][1]])
+        rotate(-switches[i][2])
+            offset(r = recess_r)
+                square([keycap_x + 2*key_clr - 2*recess_r,
+                        keycap_y + 2*key_clr - 2*recess_r], center = true);
+
+// Single open recess (no ribs, as on the Totem): the union of every keycap pad.
+// Pads overlap at 18x17 pitch so they merge into one well following the field,
+// sunk recess_d from the top (does not pass through). Cutouts pierce its floor.
+module recess_pockets()
+    translate([0, 0, height - recess_d])
+        linear_extrude(recess_d + 1)
+            for (i = [0 : len(switches) - 1]) key_pad(i);
+
 // y-down (KiCad) -> y-up (upright, matches PCB front view); grow by gap+wall.
 // Body and cutouts share the KiCad frame, then the whole part is mirrored.
 mirror([0, 1, 0])
@@ -98,4 +123,5 @@ mirror([0, 1, 0])
             offset(r = gap + wall)
                 polygon(outline);
         switch_cutouts();
+        recess_pockets();
     }
