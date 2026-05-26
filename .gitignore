@@ -5,7 +5,9 @@ output/
 phantom-src/
 node_modules/
 
-# OpenSCAD/STL build artifacts & reference STLs
+# OpenSCAD/STL build artifacts & reference STEP/STL files
 *.stl
 *.STL
+*.step
+*.STEP
 case/*.png
