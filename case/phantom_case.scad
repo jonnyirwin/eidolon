@@ -11,6 +11,7 @@
 gap    = 0.15;   // PCB-to-inner-wall clearance (per side)
 wall   = 2.0;    // case wall thickness
 height = 12.5;   // extrusion depth (mm) — matches Totem top shell
+switch = 13.8;   // Choc switch plate cutout (mm square) — Kailh spec / Totem STEP
 arc_n  = 24;     // points sampled per arc corner
 $fn = 64;
 
@@ -70,8 +71,31 @@ outline = concat(
     arc_pts(P3,  M_e, P2)       // P3 -> P2   arc (close)
 );
 
+// ---- Choc switch positions, from lephantom.kicad_pcb (KiCad coords) ----
+// [x, y, rotation_deg] — the 15 SW_PG1350 footprints of the left half.
+switches = [
+    [ 80.000, 24.980,  0], [ 59.917, 28.163,  3], [ 98.000, 28.540,  0],
+    [116.000, 37.270,  0], [ 41.507, 41.509,  5], [ 80.000, 41.970,  0],
+    [ 60.806, 45.140,  3], [ 98.000, 45.540,  0], [116.000, 54.270,  0],
+    [ 42.989, 58.444,  5], [ 80.000, 58.970,  0], [ 61.696, 62.122,  3],
+    [ 98.000, 62.545,  0], [104.154, 83.063, -8], [121.957, 85.626, -8],
+];
+
+module switch_cutouts()
+    for (s = switches)
+        translate([s[0], s[1], -1])
+            // negate: KiCad angle is CCW+, and the final mirror([0,1,0]) flips
+            // rotation sense, so -s[2] keeps each cutout aligned to its column splay.
+            rotate([0, 0, -s[2]])
+                linear_extrude(height + 2)
+                    square(switch, center = true);
+
 // y-down (KiCad) -> y-up (upright, matches PCB front view); grow by gap+wall.
-linear_extrude(height = height)
-    offset(r = gap + wall)
-        mirror([0,1,0])
-            polygon(outline);
+// Body and cutouts share the KiCad frame, then the whole part is mirrored.
+mirror([0, 1, 0])
+    difference() {
+        linear_extrude(height = height)
+            offset(r = gap + wall)
+                polygon(outline);
+        switch_cutouts();
+    }
