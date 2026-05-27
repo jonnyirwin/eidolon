@@ -141,15 +141,17 @@ module key_pad(i) {
                     square([pw - 2*recess_r, h - 2*recess_r], center = true);
 }
 
-// Thumb recess: keep its original angled-rectangle shape but extend the right
-// and bottom edges out past the case so (clipped by the body) they meet the outer
-// edge, leaving no rim wall on the thumbs' right and bottom. Anchored at the left
-// thumb key's top-left corner so the top and left edges stay put.
+// Thumb recess: the original angled rectangle, with the right and bottom edges
+// run out past the case (so, clipped by the body, they meet the outer edge -> no
+// rim wall there), and the top edge extended straight up along the recess's own
+// axis (same 8 deg angle) until it reaches the 4th-column corner, joining the
+// recesses. thumb_up grows only the top edge.
+thumb_up = 3;   // extend the recess top up to reach the 4th-column corner
 module thumb_recess()
     translate([switches[13][0], switches[13][1]])
         rotate(-switches[13][2])
-            translate([-(keycap_x/2 + key_clr), -(keycap_y/2 + key_clr)])
-                square([60, 45]);   // grows right (+x) & bottom (+y) past the edges
+            translate([-(keycap_x/2 + key_clr), -(keycap_y/2 + key_clr) - thumb_up])
+                square([60, 45 + thumb_up]);
 
 // Recess = union of every keycap pad (the field-following shape) + the extended
 // thumb recess. Widened pinky+ring pads (see widen_keys) close the inter-column
