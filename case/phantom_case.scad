@@ -21,6 +21,12 @@ keycap_x = 18.0; // keycap footprint, horizontal
 keycap_y = 17.0; // keycap footprint, vertical
 key_clr  = 0.5;  // extra clearance per side so caps don't catch
 recess_r = 0;  // recess corner fillet
+// Widen the recess on the RIGHT of the two leftmost columns (pinky+ring) by
+// widen_f, extending them toward the next column to close the inter-column ribs.
+// Top switches of the pinky+ring columns (the ones bordering the ribs); the
+// bottom switch of each column (9, 11) is left at normal width.
+widen_keys = [4, 1, 6];        // pinky-top, ring-top, ring-middle
+widen_f    = 0.25;             // +25% width, added entirely on the right
 // Stepped switch hole + plate (Totem STEP): below the recess floor sits a thin
 // plate carrying the switch. The hole is 13.8mm for plate_t13 then opens to a
 // 16mm counterbore for plate_t16; below the plate is a cavity for the PCB.
@@ -119,17 +125,25 @@ module cavity()
         linear_extrude(plate_bot + 1)
             offset(r = gap) polygon(outline);
 
-// 2D rounded keycap-clearance pad for one switch (keycap + clearance, splayed).
-module key_pad(i)
+function in_list(i, lst) = len([for (x = lst) if (x == i) 1]) > 0;
+
+// 2D keycap-clearance pad for one switch (keycap + clearance, splayed). Keys in
+// widen_keys are stretched +widen_f on their right (local +x), the extra added
+// only on that side so the left edge stays put.
+module key_pad(i) {
+    w  = keycap_x + 2*key_clr;
+    h  = keycap_y + 2*key_clr;
+    pw = in_list(i, widen_keys) ? w * (1 + widen_f) : w;
     translate([switches[i][0], switches[i][1]])
         rotate(-switches[i][2])
-            offset(r = recess_r)
-                square([keycap_x + 2*key_clr - 2*recess_r,
-                        keycap_y + 2*key_clr - 2*recess_r], center = true);
+            translate([(pw - w) / 2, 0])      // keep left edge, grow to the right
+                offset(r = recess_r)
+                    square([pw - 2*recess_r, h - 2*recess_r], center = true);
+}
 
-// Single open recess (no ribs, as on the Totem): the union of every keycap pad.
-// Pads overlap at 18x17 pitch so they merge into one well following the field,
-// sunk recess_d from the top (does not pass through). Cutouts pierce its floor.
+// Recess = union of every keycap pad (the field-following shape). The widened
+// pinky+ring pads (see widen_keys) close the inter-column ribs on their own.
+// Sunk recess_d from the top (does not pass through). Cutouts pierce its floor.
 module recess_pockets()
     translate([0, 0, height - recess_d])
         linear_extrude(recess_d + 1)
