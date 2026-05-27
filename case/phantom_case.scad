@@ -20,9 +20,18 @@ recess_d = 6.85; // recess depth from top (rim->switch-plate in Totem)
 keycap_x = 18.0; // keycap footprint, horizontal
 keycap_y = 17.0; // keycap footprint, vertical
 key_clr  = 0.5;  // extra clearance per side so caps don't catch
-recess_r = 1.6;  // recess corner fillet
+recess_r = 0;  // recess corner fillet
+// Stepped switch hole + plate (Totem STEP): below the recess floor sits a thin
+// plate carrying the switch. The hole is 13.8mm for plate_t13 then opens to a
+// 16mm counterbore for plate_t16; below the plate is a cavity for the PCB.
+plate_t13 = 1.2;   // 13.8mm hole depth (upper, switch clips here)
+plate_t16 = 0.75;  // 16mm counterbore depth (lower)
+cbore     = 16.0;  // counterbore size
 arc_n  = 24;     // points sampled per arc corner
 $fn = 64;
+// derived z-levels (z=0 bottom, z=height top)
+plate_top = height - recess_d;                 // recess floor / plate top (5.65)
+plate_bot = plate_top - plate_t13 - plate_t16; // plate underside (3.70)
 
 // ---- Edge.Cuts vertices (exact KiCad coords, mm, y-down) ----
 P1  = [ 39.624000, 17.018000];
@@ -90,14 +99,25 @@ switches = [
     [ 98.000, 62.545,  0], [104.154, 83.063, -8], [121.957, 85.626, -8],
 ];
 
+// Stepped switch hole: 13.8mm through the upper plate (and up into the recess),
+// opening to a 16mm counterbore that meets the cavity below the plate.
+// Negate s[2]: KiCad angle is CCW+, and the final mirror([0,1,0]) flips rotation
+// sense, so -s[2] keeps each hole aligned to its column splay.
 module switch_cutouts()
     for (s = switches)
-        translate([s[0], s[1], -1])
-            // negate: KiCad angle is CCW+, and the final mirror([0,1,0]) flips
-            // rotation sense, so -s[2] keeps each cutout aligned to its column splay.
-            rotate([0, 0, -s[2]])
-                linear_extrude(height + 2)
-                    square(switch, center = true);
+        translate([s[0], s[1]])
+            rotate([0, 0, -s[2]]) {
+                translate([0, 0, plate_bot + plate_t16])      // 13.8mm, 4.45 -> top
+                    linear_extrude(height) square(switch, center = true);
+                translate([0, 0, plate_bot - 0.01])           // 16mm counterbore
+                    linear_extrude(plate_t16 + 0.02) square(cbore, center = true);
+            }
+
+// PCB cavity below the plate (open bottom): leaves the plate as a thin floor.
+module cavity()
+    translate([0, 0, -1])
+        linear_extrude(plate_bot + 1)
+            offset(r = gap) polygon(outline);
 
 // 2D rounded keycap-clearance pad for one switch (keycap + clearance, splayed).
 module key_pad(i)
@@ -124,4 +144,5 @@ mirror([0, 1, 0])
                 polygon(outline);
         switch_cutouts();
         recess_pockets();
+        cavity();
     }
