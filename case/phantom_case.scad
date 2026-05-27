@@ -141,13 +141,25 @@ module key_pad(i) {
                     square([pw - 2*recess_r, h - 2*recess_r], center = true);
 }
 
-// Recess = union of every keycap pad (the field-following shape). The widened
-// pinky+ring pads (see widen_keys) close the inter-column ribs on their own.
-// Sunk recess_d from the top (does not pass through). Cutouts pierce its floor.
+// Thumb recess: keep its original angled-rectangle shape but extend the right
+// and bottom edges out past the case so (clipped by the body) they meet the outer
+// edge, leaving no rim wall on the thumbs' right and bottom. Anchored at the left
+// thumb key's top-left corner so the top and left edges stay put.
+module thumb_recess()
+    translate([switches[13][0], switches[13][1]])
+        rotate(-switches[13][2])
+            translate([-(keycap_x/2 + key_clr), -(keycap_y/2 + key_clr)])
+                square([60, 45]);   // grows right (+x) & bottom (+y) past the edges
+
+// Recess = union of every keycap pad (the field-following shape) + the extended
+// thumb recess. Widened pinky+ring pads (see widen_keys) close the inter-column
+// ribs. Sunk recess_d from the top (does not pass through). Cutouts pierce floor.
 module recess_pockets()
     translate([0, 0, height - recess_d])
-        linear_extrude(recess_d + 1)
+        linear_extrude(recess_d + 1) {
             for (i = [0 : len(switches) - 1]) key_pad(i);
+            thumb_recess();
+        }
 
 // y-down (KiCad) -> y-up (upright, matches PCB front view); grow by gap+wall.
 // Body and cutouts share the KiCad frame, then the whole part is mirrored.
