@@ -59,7 +59,7 @@ usb_z0   = plate_bot + 0.8;// cutout bottom ~ connector height above the PCB
 // Acrylic cover for the XIAO pocket: a shallow rebate cut into the TOP of the
 // deck so a 3mm acrylic square drops in flush over the through-hole, resting
 // on a small ledge of deck round the pocket.
-acrylic_t     = 3.0;       // acrylic thickness = rebate depth
+acrylic_t     = 1.5;       // acrylic thickness = rebate depth
 acrylic_ledge = 1.0;       // ledge each side (rebate footprint > pocket footprint)
 // MSK-12D19 power switch — through-hole SPDT on the PCB right edge with the
 // actuator overhanging. The case needs a slot in the right wall for the
