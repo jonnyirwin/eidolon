@@ -1,3 +1,8 @@
+> ⚠️ **Work in progress — do not build this as-is.** The PCB, case, and
+> firmware are all under active iteration and have not been validated against
+> a physical build. Things will change, things may be wrong. Watch the commits
+> if you want to follow along, but don't order boards from these files yet.
+
 # Phantom — Ergogen recreation
 
 An [Ergogen](https://ergogen.xyz) recreation of
