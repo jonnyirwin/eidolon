@@ -1,4 +1,4 @@
-// 3-pin SPDT slide power switch (SS-12D00 / SK-12D07 style), through-hole.
+// 3-pin SPDT slide power switch — MSK-12D19 (also SS-12D00 / SK-12D07 style).
 // Meant to sit at the board edge with the actuator overhanging so it protrudes
 // from the case side. Pins in a row at 2.5mm pitch.
 //

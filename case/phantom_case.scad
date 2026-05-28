@@ -55,6 +55,19 @@ usb_wall = 2.0;            // wall left between the flat face and the pocket
 usb_w    = 9.0;            // USB-C cutout width
 usb_h    = 3.6;            // USB-C cutout height
 usb_z0   = plate_bot + 0.8;// cutout bottom ~ connector height above the PCB
+// Acrylic cover for the XIAO pocket: a shallow rebate cut into the TOP of the
+// deck so a 3mm acrylic square drops in flush over the through-hole, resting
+// on a small ledge of deck round the pocket.
+acrylic_t     = 3.0;       // acrylic thickness = rebate depth
+acrylic_ledge = 1.0;       // ledge each side (rebate footprint > pocket footprint)
+// MSK-12D19 power switch — through-hole SPDT on the PCB right edge with the
+// actuator overhanging. The case needs a slot in the right wall for the
+// actuator/slider; sized for 1.5mm slider travel + clearance.
+sw_pos   = [145.5, 60.27]; // switch centre, KiCad — matches ergogen power placement
+sw_z     = plate_bot + 1.5;// slot vertical centre = actuator height above the PCB
+sw_slot_w = 8.0;           // slot width  (y, along slider travel + cap)
+sw_slot_h = 4.0;           // slot height (z)
+sw_slot_inward = 5.0;      // how much the slot extends into the case body (-x)
 arc_n  = 24;     // points sampled per arc corner
 $fn = 64;
 
@@ -244,6 +257,26 @@ module usb_port() {
         }
 }
 
+// XIAO acrylic-cover rebate: shallow pocket in the top deck, acrylic_t deep,
+// larger than the XIAO pocket by acrylic_ledge per side so the acrylic drops
+// in from above and rests on a ledge of deck round the pocket.
+module acrylic_rebate()
+    translate([xiao_pos[0], xiao_pos[1], height - acrylic_t])
+        rotate([0, 0, -xiao_rot])
+            linear_extrude(acrylic_t + 0.1)
+                square([xiao_w + 2*(xiao_clr + acrylic_ledge),
+                        xiao_l + 2*(xiao_clr + acrylic_ledge)], center = true);
+
+// Power-switch actuator slot: rectangular hole pierced through the right wall
+// at sw_pos and actuator z, generous in y for the slider's travel. Also
+// extended sw_slot_inward into the case body (-x) to make room for the switch
+// body to sit when the PCB is seated.
+module power_slot()
+    translate([sw_pos[0] - sw_slot_inward,
+               sw_pos[1] - sw_slot_w/2,
+               sw_z - sw_slot_h/2])
+        cube([10 + sw_slot_inward, sw_slot_w, sw_slot_h]);
+
 // Recess = union of every keycap pad (the field-following shape) + the extended
 // thumb recess. Widened pinky+ring pads (see widen_keys) close the inter-column
 // ribs. Sunk recess_d from the top (does not pass through). Cutouts pierce floor.
@@ -265,5 +298,7 @@ mirror([0, 1, 0])
         recess_pockets();
         cavity();
         xiao_cutout();
+        acrylic_rebate();
         usb_port();
+        power_slot();
     }

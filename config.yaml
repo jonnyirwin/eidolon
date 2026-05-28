@@ -314,8 +314,8 @@ pcbs:
         what: power_switch
         where: &power_where
           ref: matrix_inner_home
-          shift: [25, -23]
-          rotate: -90         # on the right edge, below the XIAO; actuator overhangs the right side
+          shift: [29.5, -23]  # KiCad (145.5, 60.27): body right edge ~ PCB edge after pcb_pad
+          rotate: -90         # below the XIAO; MSK-12D19 actuator overhangs the right side
         params: &power_params
           A: RAW_BATT         # from battery +
           B: BATT             # to XIAO B+
