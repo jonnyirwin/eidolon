@@ -33,11 +33,30 @@ widen_f    = 0.25;             // +25% width, added entirely on the right
 plate_t13 = 1.2;   // 13.8mm hole depth (upper, switch clips here)
 plate_t16 = 0.75;  // 16mm counterbore depth (lower)
 cbore     = 16.0;  // counterbore size
-arc_n  = 24;     // points sampled per arc corner
-$fn = 64;
-// derived z-levels (z=0 bottom, z=height top)
+// derived z-levels (z=0 bottom, z=height top) — defined here so usb_z0 can use them
 plate_top = height - recess_d;                 // recess floor / plate top (5.65)
 plate_bot = plate_top - plate_t13 - plate_t16; // plate underside (3.70)
+// XIAO BLE microcontroller — walled pocket on the right, a hole straight through
+// the case (separate from the keycap recess). At the top (-y) end the slanted
+// outer wall is flattened by a rounded-rectangular recess, and the USB-C socket
+// cutout pierces that flat into the pocket. The PCB right edge is grown by
+// pcb_pad (see outline) so the pocket has board under it + real walls.
+xiao_l   = 20.0;            // board length (long axis, vertical / y)
+xiao_w   = 17.5;           // board width (x)
+xiao_clr = 0.4;            // clearance per side inside the pocket
+xiao_pos = [137.0, 44.0];  // pocket center, KiCad coords — up near the top angle
+xiao_rot = 0;              // deg; 0 = level with the right edge
+// USB-C side: a rounded-rect recess cut into the top-right wall makes a flat
+// face usb_wall in front of the pocket; the socket cutout goes through it.
+flat_w   = 14.0;           // flat recess width  (x)
+flat_h   = 9.0;            // flat recess height (z)
+flat_r   = 2.0;            // flat recess corner radius
+usb_wall = 2.0;            // wall left between the flat face and the pocket
+usb_w    = 9.0;            // USB-C cutout width
+usb_h    = 3.6;            // USB-C cutout height
+usb_z0   = plate_bot + 0.8;// cutout bottom ~ connector height above the PCB
+arc_n  = 24;     // points sampled per arc corner
+$fn = 64;
 
 // ---- Edge.Cuts vertices (exact KiCad coords, mm, y-down) ----
 P1  = [ 39.624000, 17.018000];
@@ -79,20 +98,57 @@ function arc_pts(p0, pm, p1, n=arc_n) =
         r  = norm(p0-c))
     [ for (i=[1:n]) let(t=i/n, a=a0+sweep*t) c + r*[cos(a), sin(a)] ];
 
+// Local enlargement of the right edge to house the XIAO pocket: push the right
+// (vertical) edge out by pcb_pad. AND smooth the upper-right kink — in the source
+// PCB the diagonal (P3->P4) meets the corner arc (P3,M_e,P2) at ~7°, not tangent.
+// We keep the corner arc as-is but shift the diagonal parallel-outward until
+// it's TANGENT to that arc, replacing P3 with the tangent point T. The new
+// top-right corner Pc = intersection of the (pushed) vertical edge with the
+// (tangent-shifted) diagonal. Both edges stay on true PCB lines + the corner
+// is now smooth. P7 (bottom) stays, so the lower-right line just tilts out.
+function line_intersect(a, b, c, d) =
+    let(r = b - a, s = d - c, rxs = r[0]*s[1] - r[1]*s[0])
+    a + r * (((c[0]-a[0])*s[1] - (c[1]-a[1])*s[0]) / rxs);
+function _vlen(v)   = sqrt(v[0]*v[0] + v[1]*v[1]);
+function _vunit(v)  = v / _vlen(v);
+function _bisect(a, b) = _vunit(_vunit(a) + _vunit(b));
+pcb_pad = 3.0;
+P5e = P5 + [pcb_pad, 0];
+P6e = P6 + [pcb_pad, 0];
+// Upper-right corner: replace the source PCB's near-arc (kinks ~7° at the
+// diagonal, ~1.56° at the top edge) with a PROPER FILLET of the same radius,
+// tangent to both the (shifted) diagonal AND the top edge. Compute the new
+// centre by intersecting the two lines offset inward by r_e, then drop
+// perpendiculars to get the tangent points T (replaces P3) and P2t (replaces
+// P2). M_t is a point on the new arc for arc_pts reconstruction.
+C_ref = _ctr(P3, M_e, P2);                                    // original centre (sign reference)
+r_e   = _vlen(P3 - C_ref);                                    // original PCB radius (kept)
+u_d   = _vunit(P4 - P3);                                      // diagonal direction
+u_t   = _vunit(P2 - P1);                                      // top-edge direction
+n_d   = ([-u_d[1], u_d[0]] * (C_ref - P3) > 0)
+            ? [-u_d[1],  u_d[0]] : [ u_d[1], -u_d[0]];        // inward normal (diag)
+n_t   = ([-u_t[1], u_t[0]] * (C_ref - P2) > 0)
+            ? [-u_t[1],  u_t[0]] : [ u_t[1], -u_t[0]];        // inward normal (top)
+C_e   = line_intersect(P3 + r_e*n_d, P3 + r_e*n_d + u_d,
+                       P1 + r_e*n_t, P1 + r_e*n_t + u_t);     // fillet centre
+T     = P3 + u_d * ((C_e - P3) * u_d);                        // tangent point on diagonal
+P2t   = P1 + u_t * ((C_e - P1) * u_t);                        // tangent point on top edge
+M_t   = C_e + r_e * _bisect(T - C_e, P2t - C_e);              // mid of the new arc
+Pc    = line_intersect(T, T + u_d, P5e, P6e);                 // vertical edge ∩ diag
+
 // ---- assemble the closed perimeter, in connection order ----
 outline = concat(
-    [P2],
-    [P1],                       // P2 -> P1   line (top edge)
+    [P2t],
+    [P1],                       // P2t -> P1  line (top edge, tangent-trimmed)
     arc_pts(P1,  M_a, P11),     // P1 -> P11  arc
     [P10],                      // P11 -> P10 line (left edge)
     arc_pts(P10, M_b, P9),      // P10 -> P9  arc
     [P8],                       // P9 -> P8   line (bottom edge)
     arc_pts(P8,  M_c, P7),      // P8 -> P7   arc
-    [P6],                       // P7 -> P6   line
-    [P5],                       // P6 -> P5   line (right edge)
-    arc_pts(P5,  M_d, P4),      // P5 -> P4   arc
-    [P3],                       // P4 -> P3   line
-    arc_pts(P3,  M_e, P2)       // P3 -> P2   arc (close)
+    [P6e],                      // P7 -> P6   line (tilts out to the moved P6)
+    [Pc],                       // P6 -> corner: vertical edge, +pcb_pad out
+    [T],                        // corner -> T   (tangent point, diagonal side)
+    arc_pts(T,   M_t, P2t)      // T  -> P2t arc (fillet tangent at BOTH ends)
 );
 
 // ---- Choc switch positions, from lephantom.kicad_pcb (KiCad coords) ----
@@ -153,6 +209,41 @@ module thumb_recess()
             translate([-(keycap_x/2 + key_clr), -(keycap_y/2 + key_clr) - thumb_up])
                 square([60, 45 + thumb_up]);
 
+// XIAO cutout: full-height rectangular hole straight through the case, sized to
+// the board + clearance. Long axis is vertical. Negate xiao_rot to match the
+// final mirror, as with the switch holes.
+module xiao_cutout()
+    translate([xiao_pos[0], xiao_pos[1], -0.5])
+        rotate([0, 0, -xiao_rot])
+            linear_extrude(height + 1)
+                square([xiao_w + 2*xiao_clr, xiao_l + 2*xiao_clr], center = true);
+
+// Rounded-rectangle prism of width w (x) and height h (z), extending +y by depth
+// — used to carve a flat-faced recess into a wall. Corners rounded by r.
+module rrect_y(w, h, depth, r)
+    hull()
+        for (sx = [-1, 1], sz = [-1, 1])
+            translate([sx*(w/2 - r), 0, sz*(h/2 - r)])
+                rotate([-90, 0, 0])
+                    cylinder(h = depth, r = r, $fn = 32);
+
+// USB-C port: flatten the slanted top-right wall with a rounded-rect recess that
+// stops usb_wall short of the pocket (leaving a flat face), then drive the
+// socket cutout through that flat into the pocket. Built in the XIAO's local
+// frame (-y = toward the USB end) so it follows xiao_pos / xiao_rot.
+module usb_port() {
+    pe = -(xiao_l/2 + xiao_clr);   // pocket -y edge (local)
+    fy = pe - usb_wall;            // flat face position (local y)
+    zc = usb_z0 + usb_h/2;         // recess vertical centre
+    translate([xiao_pos[0], xiao_pos[1], 0])
+        rotate([0, 0, -xiao_rot]) {
+            translate([0, fy - 20, zc])           // recess: outward 20mm to the flat
+                rrect_y(flat_w, flat_h, 20, flat_r);
+            translate([-usb_w/2, fy - 0.6, usb_z0])  // socket: flat -> into pocket
+                cube([usb_w, usb_wall + 4, usb_h]);
+        }
+}
+
 // Recess = union of every keycap pad (the field-following shape) + the extended
 // thumb recess. Widened pinky+ring pads (see widen_keys) close the inter-column
 // ribs. Sunk recess_d from the top (does not pass through). Cutouts pierce floor.
@@ -173,4 +264,6 @@ mirror([0, 1, 0])
         switch_cutouts();
         recess_pockets();
         cavity();
+        xiao_cutout();
+        usb_port();
     }

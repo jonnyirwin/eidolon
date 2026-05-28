@@ -148,21 +148,17 @@ outlines:
             - { ref: matrix_middle_bottom, shift: [50.914, -36.106] }
         - type: line
           points:
-            - { ref: matrix_middle_bottom, shift: [64.272, -7.832] }
+            - { ref: matrix_middle_bottom, shift: [67.272, -7.832] }   # +pcb_pad: vertical edge, lower
         - type: line
           points:
-            - { ref: matrix_middle_bottom, shift: [64.188, 26.458] }
-        - type: arc
-          points:
-            - { ref: matrix_middle_bottom, shift: [64.091, 26.944] }
-            - { ref: matrix_middle_bottom, shift: [63.816, 27.356] }
+            - { ref: matrix_middle_bottom, shift: [67.189, 25.872] }   # Pc: vertical edge meets diagonal
         - type: line
           points:
-            - { ref: matrix_middle_bottom, shift: [32.017, 42.159] }
+            - { ref: matrix_middle_bottom, shift: [30.723, 42.761] }   # T: tangent point (diagonal)
         - type: arc
           points:
-            - { ref: matrix_middle_bottom, shift: [29.088, 43.415] }
-            - { ref: matrix_middle_bottom, shift: [25.918, 43.730] }
+            - { ref: matrix_middle_bottom, shift: [28.435, 43.519] }   # M on new fillet
+            - { ref: matrix_middle_bottom, shift: [26.034, 43.733] }   # P2': tangent point (top edge)
         - type: line
           points:
             - { ref: matrix_middle_bottom, shift: [-40.376, 41.952] }
@@ -193,21 +189,17 @@ outlines:
             - { ref: mirror_matrix_middle_bottom, shift: [-50.914, -36.106] }
         - type: line
           points:
-            - { ref: mirror_matrix_middle_bottom, shift: [-64.272, -7.832] }
+            - { ref: mirror_matrix_middle_bottom, shift: [-67.272, -7.832] }   # +pcb_pad
         - type: line
           points:
-            - { ref: mirror_matrix_middle_bottom, shift: [-64.188, 26.458] }
-        - type: arc
-          points:
-            - { ref: mirror_matrix_middle_bottom, shift: [-64.091, 26.944] }
-            - { ref: mirror_matrix_middle_bottom, shift: [-63.816, 27.356] }
+            - { ref: mirror_matrix_middle_bottom, shift: [-67.189, 25.872] }   # Pc mirrored
         - type: line
           points:
-            - { ref: mirror_matrix_middle_bottom, shift: [-32.017, 42.159] }
+            - { ref: mirror_matrix_middle_bottom, shift: [-30.723, 42.761] }   # T mirrored
         - type: arc
           points:
-            - { ref: mirror_matrix_middle_bottom, shift: [-29.088, 43.415] }
-            - { ref: mirror_matrix_middle_bottom, shift: [-25.918, 43.730] }
+            - { ref: mirror_matrix_middle_bottom, shift: [-28.435, 43.519] }   # M mirrored
+            - { ref: mirror_matrix_middle_bottom, shift: [-26.034, 43.733] }   # P2' mirrored
         - type: line
           points:
             - { ref: mirror_matrix_middle_bottom, shift: [40.376, 41.952] }
@@ -296,7 +288,7 @@ pcbs:
         what: xiao_pogo
         where: &mcu_where
           ref: matrix_inner_home
-          shift: [10, -15]
+          shift: [21, -6.73]  # KiCad (137, 44): right of the inner column, near the top-right
           rotate: 0           # USB + antenna toward the top edge (USB access + BLE)
         params: &mcu_params
           D0: C0
