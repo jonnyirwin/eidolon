@@ -11,6 +11,7 @@
 gap    = 0.15;   // PCB-to-inner-wall clearance (per side)
 wall   = 2.0;    // case wall thickness
 height = 12.5;   // extrusion depth (mm) — matches Totem top shell
+chamfer = 1.0;   // 45 degree chamfer on the top outside edge of the case
 switch = 13.8;   // Choc switch plate cutout (mm square) — Kailh spec / Totem STEP
 // Per-column keycap recess. Depth/corner from Totem STEP; opening sized to the
 // keycap (not the switch) so caps drop in without catching. At 18mm column pitch
@@ -287,13 +288,30 @@ module recess_pockets()
             thumb_recess();
         }
 
+// Outer body with a 45-degree chamfer on the top outside edge: straight wall
+// from z=0 to z=height-chamfer, then a hull cap that insets the outline by
+// chamfer over the top chamfer of z.
+module body_chamfered() {
+    linear_extrude(height - chamfer)
+        offset(r = gap + wall)
+            polygon(outline);
+    translate([0, 0, height - chamfer])
+        hull() {
+            linear_extrude(0.01)
+                offset(r = gap + wall)
+                    polygon(outline);
+            translate([0, 0, chamfer])
+                linear_extrude(0.01)
+                    offset(r = gap + wall - chamfer)
+                        polygon(outline);
+        }
+}
+
 // y-down (KiCad) -> y-up (upright, matches PCB front view); grow by gap+wall.
 // Body and cutouts share the KiCad frame, then the whole part is mirrored.
 mirror([0, 1, 0])
     difference() {
-        linear_extrude(height = height)
-            offset(r = gap + wall)
-                polygon(outline);
+        body_chamfered();
         switch_cutouts();
         recess_pockets();
         cavity();
