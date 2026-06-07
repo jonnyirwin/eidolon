@@ -11,7 +11,6 @@
 gap    = 0.15;   // PCB-to-inner-wall clearance (per side)
 wall   = 2.0;    // case wall thickness
 height = 12.5;   // extrusion depth (mm) — matches Totem top shell
-chamfer = 1.0;   // 45 degree chamfer on the top outside edge of the case
 switch = 13.8;   // Choc switch plate cutout (mm square) — Kailh spec / Totem STEP
 // Per-column keycap recess. Depth/corner from Totem STEP; opening sized to the
 // keycap (not the switch) so caps drop in without catching. At 18mm column pitch
@@ -54,13 +53,28 @@ flat_h   = 9.0;            // flat recess height (z)
 flat_r   = 2.0;            // flat recess corner radius
 usb_wall = 2.0;            // wall left between the flat face and the pocket
 usb_w    = 9.0;            // USB-C cutout width
-usb_h    = 3.6;            // USB-C cutout height
-usb_z0   = plate_bot + 0.8;// cutout bottom ~ connector height above the PCB
-// Acrylic cover for the XIAO pocket: a shallow rebate cut into the TOP of the
-// deck so a 3mm acrylic square drops in flush over the through-hole, resting
-// on a small ledge of deck round the pocket.
+usb_h    = 4.0;            // USB-C cutout height (3.2 socket + 0.8 clearance)
+// SMD-mounted XIAO (castellated on PCB top): XIAO board sits on plate_bot with
+// its own 1.0mm thickness, then the USB-C connector body extends ~3.16mm above
+// that. Connector top is at plate_bot + 1.0 + 3.16 = plate_bot + 4.16. Place
+// the cutout bottom 0.3mm below the XIAO PCB top to clear the connector body.
+usb_z0   = plate_bot + 0.7;
+// Acrylic cover over the XIAO through-hole: shallow rebate in the top deck,
+// acrylic drops in flush with the deck top and rests on a ledge round the
+// pocket. With SMD mount there's no MCU bump, so the rebate sits in the deck.
 acrylic_t     = 1.5;       // acrylic thickness = rebate depth
 acrylic_ledge = 1.0;       // ledge each side (rebate footprint > pocket footprint)
+// Battery pocket — 301230 LiPo cell (3.0 x 12 x 30 mm) sits ON TOP of the PCB
+// in the empty palm-rest area, hidden between the PCB and the underside of the
+// deck. Pocket is cut UPWARD from plate_bot through the plate into the deck so
+// the cell drops in from below before the PCB is seated; wires bend up to F.Cu
+// pads on the PCB top (5mm apart, see footprints/battery.js). Bottom of the
+// pocket is open to the under-PCB cavity (which the bottom shell will close).
+bat_pos    = [58.5, 76.0];   // KiCad — palm-rest area, clear of switches
+bat_rot    = 0;              // long axis along x (-90 = along y)
+bat_x      = 38.0;           // pocket length: cell 30 + 7.5mm wire well at -x end + 0.5 at +x
+bat_y      = 14.0;           // pocket width (cell 12 + 1mm each side)
+bat_depth  = 3.5;            // height above plate_bot (cell + 0.5 clearance)
 // MSK-12D19 power switch — through-hole SPDT on the PCB right edge with the
 // actuator overhanging. The case needs a slot in the right wall for the
 // actuator/slider; sized for 1.5mm slider travel + clearance.
@@ -221,11 +235,11 @@ module thumb_recess()
     translate([switches[13][0], switches[13][1]])
         rotate(-switches[13][2])
             translate([-(keycap_x/2 + key_clr), -(keycap_y/2 + key_clr) - thumb_up])
-                square([60, 45 + thumb_up]);
+                square([37, 45 + thumb_up]);
 
-// XIAO cutout: full-height rectangular hole straight through the case, sized to
-// the board + clearance. Long axis is vertical. Negate xiao_rot to match the
-// final mirror, as with the switch holes.
+// XIAO cutout: rectangular hole straight through the deck above the XIAO so
+// you can see/access the board from above. Long axis is vertical. Negate
+// xiao_rot to match the final mirror, as with the switch holes.
 module xiao_cutout()
     translate([xiao_pos[0], xiao_pos[1], -0.5])
         rotate([0, 0, -xiao_rot])
@@ -268,6 +282,15 @@ module acrylic_rebate()
                 square([xiao_w + 2*(xiao_clr + acrylic_ledge),
                         xiao_l + 2*(xiao_clr + acrylic_ledge)], center = true);
 
+// Battery pocket: cut from plate_bot upward to plate_bot+bat_depth, in an
+// empty area of the plate/deck above the PCB (no switches there). Pocket
+// floor is the PCB top; pocket open at the bottom into the under-PCB cavity.
+module battery_pocket()
+    translate([bat_pos[0], bat_pos[1], plate_bot])
+        rotate([0, 0, -bat_rot])
+            linear_extrude(bat_depth)
+                square([bat_x, bat_y], center = true);
+
 // Power-switch actuator slot: rectangular hole pierced through the right wall
 // at sw_pos and actuator z, generous in y for the slider's travel. Also
 // extended sw_slot_inward into the case body (-x) to make room for the switch
@@ -288,35 +311,24 @@ module recess_pockets()
             thumb_recess();
         }
 
-// Outer body with a 45-degree chamfer on the top outside edge: straight wall
-// from z=0 to z=height-chamfer, then a hull cap that insets the outline by
-// chamfer over the top chamfer of z.
-module body_chamfered() {
-    linear_extrude(height - chamfer)
+// Outer body: straight vertical wall from z=0 to z=height, outline grown by
+// gap+wall so the PCB drops inside with the wall around it.
+module body()
+    linear_extrude(height)
         offset(r = gap + wall)
             polygon(outline);
-    translate([0, 0, height - chamfer])
-        hull() {
-            linear_extrude(0.01)
-                offset(r = gap + wall)
-                    polygon(outline);
-            translate([0, 0, chamfer])
-                linear_extrude(0.01)
-                    offset(r = gap + wall - chamfer)
-                        polygon(outline);
-        }
-}
 
 // y-down (KiCad) -> y-up (upright, matches PCB front view); grow by gap+wall.
 // Body and cutouts share the KiCad frame, then the whole part is mirrored.
 mirror([0, 1, 0])
     difference() {
-        body_chamfered();
+        body();
         switch_cutouts();
         recess_pockets();
         cavity();
         xiao_cutout();
         acrylic_rebate();
         usb_port();
+        battery_pocket();
         power_slot();
     }
