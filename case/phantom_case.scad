@@ -70,11 +70,11 @@ acrylic_ledge = 1.0;       // ledge each side (rebate footprint > pocket footpri
 // the cell drops in from below before the PCB is seated; wires bend up to F.Cu
 // pads on the PCB top (5mm apart, see footprints/battery.js). Bottom of the
 // pocket is open to the under-PCB cavity (which the bottom shell will close).
-bat_pos    = [58.5, 76.0];   // KiCad — palm-rest area, clear of switches
+bat_pos    = [60.0, 80.0];   // KiCad — palm-rest area, clear of every keycap pad
 bat_rot    = 0;              // long axis along x (-90 = along y)
 bat_x      = 38.0;           // pocket length: cell 30 + 7.5mm wire well at -x end + 0.5 at +x
 bat_y      = 14.0;           // pocket width (cell 12 + 1mm each side)
-bat_depth  = 3.5;            // height above plate_bot (cell + 0.5 clearance)
+bat_depth  = 3.5;            // cell + 0.5 clearance above plate_bot
 // MSK-12D19 power switch — through-hole SPDT on the PCB right edge with the
 // actuator overhanging. The case needs a slot in the right wall for the
 // actuator/slider; sized for 1.5mm slider travel + clearance.
@@ -267,8 +267,12 @@ module usb_port() {
         rotate([0, 0, -xiao_rot]) {
             translate([0, fy - 20, zc])           // recess: outward 20mm to the flat
                 rrect_y(flat_w, flat_h, 20, flat_r);
-            translate([-usb_w/2, fy - 0.6, usb_z0])  // socket: flat -> into pocket
-                cube([usb_w, usb_wall + 4, usb_h]);
+            // stadium-shaped socket cutout (usb_w x usb_h, semicircular ends)
+            translate([0, fy - 0.6 + (usb_wall + 4)/2, zc])
+                rotate([90, 0, 0])
+                    linear_extrude(usb_wall + 4, center = true)
+                        offset(r = usb_h/2)
+                            square([usb_w - usb_h, 0.001], center = true);
         }
 }
 
@@ -286,20 +290,24 @@ module acrylic_rebate()
 // empty area of the plate/deck above the PCB (no switches there). Pocket
 // floor is the PCB top; pocket open at the bottom into the under-PCB cavity.
 module battery_pocket()
-    translate([bat_pos[0], bat_pos[1], plate_bot])
+    translate([bat_pos[0], bat_pos[1], plate_bot - 0.5])
         rotate([0, 0, -bat_rot])
-            linear_extrude(bat_depth)
+            linear_extrude(bat_depth + 0.5)
                 square([bat_x, bat_y], center = true);
 
 // Power-switch actuator slot: rectangular hole pierced through the right wall
 // at sw_pos and actuator z, generous in y for the slider's travel. Also
 // extended sw_slot_inward into the case body (-x) to make room for the switch
 // body to sit when the PCB is seated.
-module power_slot()
-    translate([sw_pos[0] - sw_slot_inward,
-               sw_pos[1] - sw_slot_w/2,
-               sw_z - sw_slot_h/2])
-        cube([10 + sw_slot_inward, sw_slot_w, sw_slot_h]);
+module power_slot() {
+    length = 10 + sw_slot_inward;
+    r = 1.5;  // corner radius (<= sw_slot_h/2 = 2)
+    translate([sw_pos[0] - sw_slot_inward, sw_pos[1], sw_z])
+        rotate([0, 90, 0])
+            linear_extrude(length)
+                offset(r = r)
+                    square([sw_slot_h - 2*r, sw_slot_w - 2*r], center = true);
+}
 
 // Recess = union of every keycap pad (the field-following shape) + the extended
 // thumb recess. Widened pinky+ring pads (see widen_keys) close the inter-column
@@ -311,12 +319,21 @@ module recess_pockets()
             thumb_recess();
         }
 
-// Outer body: straight vertical wall from z=0 to z=height, outline grown by
-// gap+wall so the PCB drops inside with the wall around it.
+// Outer body: vertical wall from z=0 to z=height, outline grown by gap+wall.
+// The top outside edge is filleted by minkowski-summing an inset prism with an
+// upper-hemisphere kernel of radius top_r — only the top edge rounds; the
+// bottom stays sharp (sits flat) and the vertical sides stay vertical.
+top_r = 1.0;  // top outside edge fillet radius
 module body()
-    linear_extrude(height)
-        offset(r = gap + wall)
-            polygon(outline);
+    minkowski() {
+        linear_extrude(height - top_r)
+            offset(r = gap + wall - top_r) polygon(outline);
+        intersection() {
+            sphere(r = top_r, $fn = 16);
+            translate([0, 0, top_r / 2])
+                cube([2*top_r + 0.1, 2*top_r + 0.1, top_r + 0.1], center = true);
+        }
+    }
 
 // y-down (KiCad) -> y-up (upright, matches PCB front view); grow by gap+wall.
 // Body and cutouts share the KiCad frame, then the whole part is mirrored.

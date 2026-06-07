@@ -305,7 +305,7 @@ pcbs:
         what: battery
         where: &battery_where
           ref: matrix_inner_home
-          shift: [-73, 25.27]  # KiCad (43, 76): -x wire-well end of battery_pocket(), outside the cell footprint
+          shift: [-71.5, 29.27]  # KiCad (44.5, 80): -x wire-well end of battery_pocket()
           rotate: 0
         params: &battery_params
           P: RAW_BATT
