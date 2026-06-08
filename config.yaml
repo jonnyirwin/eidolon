@@ -305,7 +305,7 @@ pcbs:
         what: battery
         where: &battery_where
           ref: matrix_inner_home
-          shift: [-71.5, 29.27]  # KiCad (44.5, 80): -x wire-well end of battery_pocket()
+          shift: [-71.5, -42.73]  # KiCad (44.5, 80): -x wire-well end of battery_pocket()
           rotate: 0
         params: &battery_params
           P: RAW_BATT
@@ -320,27 +320,30 @@ pcbs:
           A: RAW_BATT         # from battery +
           B: BATT             # to XIAO B+
           C: PWR_NC           # off position (unconnected)
-      # M2 case-to-case mounting holes — positions mirror bolts[] in phantom_case.scad
+      # M2 case-to-case mounting holes — positions mirror bolts[] in phantom_case.scad.
+      # Shift = [case_x - 116, 37.27 - case_y], where case->board is (x-80, y-58.97)
+      # and matrix_inner_home sits at board (36, -21.70). (The earlier y-shifts were
+      # sign-flipped — Ergogen y-up vs KiCad y-down — placing these off the board.)
       mount_tl:
         what: mounting_hole_m2
         where: &mount_tl_where
           ref: matrix_inner_home
-          shift: [-79, -28.73]  # KiCad (37, 22)
+          shift: [-79, 15.27]   # KiCad (37, 22)
       mount_tr:
         what: mounting_hole_m2
         where: &mount_tr_where
           ref: matrix_inner_home
-          shift: [-1, -26.73]   # KiCad (115, 24)
+          shift: [-1, 13.27]    # KiCad (115, 24)
       mount_bl:
         what: mounting_hole_m2
         where: &mount_bl_where
           ref: matrix_inner_home
-          shift: [-78, 31.27]   # KiCad (38, 82)
+          shift: [-78, -44.73]  # KiCad (38, 82)
       mount_br:
         what: mounting_hole_m2
         where: &mount_br_where
           ref: matrix_inner_home
-          shift: [21, 27.27]    # KiCad (137, 78)
+          shift: [21, -40.73]   # KiCad (137, 78)
   phantom_right:
     outlines:
       main:
