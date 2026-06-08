@@ -5,6 +5,10 @@ output/
 phantom-src/
 node_modules/
 
+# Python bytecode (autorouter)
+__pycache__/
+*.pyc
+
 # OpenSCAD/STL build artifacts & reference STEP/STL files
 *.stl
 *.STL
