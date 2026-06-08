@@ -1,14 +1,17 @@
 # Project state — phantom-ergogen
 
 ## In flight
-**ergogen-route autorouter** (`router/`). Matrix routing + vias (prompt steps
-1–8) built and validated: switch **columns** on B.Cu (73 segs) + diode **rows**
-on F.Cu (81 segs) + 15 B.Cu stubs + **15 per-key transition vias** = 169 segs +
-15 vias. Reloads cleanly in pcbnew. Step 7 = `route_spine(board, klass,
-footprints)`; Step 8 = `kwrite.via` + `route_matrix_links` (via on diode pad,
-B.Cu stub to switch; validated by closing exactly 15 ratsnest links, 31→16).
+**ergogen-route autorouter** (`router/`). Steps 1–9 built and validated:
+columns on B.Cu + rows on F.Cu (Catmull-Rom) + 15 per-key transition vias +
+**thumb keys split into their own spine joined by a Bézier** in the thumb's
+local frame. 170 segs + 15 vias, 16 unconnected (all deferred MCU/power/USB),
+reloads cleanly. Step 7 = `route_spine`; Step 8 = `route_matrix_links`; Step 9 =
+`bezier_transition`/`cubic_bezier`/`rotate`/`unit` in geometry + thumb detection
+(`thumb_switch_refs`, `_thumb` token) in `cli.py`. User chose the *general*
+capability (unit-tested to 25°); on the Phantom it activates at −8° with
+tangent-continuous joins (dot 0.9985).
 
-**Next step: Step 9 — thumb-cluster Bézier transitions.** Detailed in the plan.
+**Next step: Step 10 — split mirror (route `phantom_right.kicad_pcb`).** In plan.
 
 Active plan: `.claude/plans/autorouter.md`
 

@@ -83,3 +83,41 @@ def _lerp(a: Point, b: Point, ta: float, tb: float, t: float) -> Point:
         return a
     w = (t - ta) / (tb - ta)
     return (a[0] + (b[0] - a[0]) * w, a[1] + (b[1] - a[1]) * w)
+
+
+def unit(v: Point) -> Point:
+    n = math.hypot(v[0], v[1]) or 1.0
+    return (v[0] / n, v[1] / n)
+
+
+def rotate(v: Point, deg: float) -> Point:
+    """Rotate a vector by ``deg`` degrees (KiCad's y-down frame)."""
+    r = math.radians(deg)
+    c, s = math.cos(r), math.sin(r)
+    return (v[0] * c - v[1] * s, v[0] * s + v[1] * c)
+
+
+def cubic_bezier(p0: Point, c0: Point, c1: Point, p1: Point,
+                 samples: int = 12) -> list[Point]:
+    """Sample a cubic Bézier; passes through ``p0`` and ``p1`` exactly."""
+    out: list[Point] = []
+    for s in range(samples + 1):
+        t = s / samples
+        mt = 1 - t
+        a, b, c, d = mt * mt * mt, 3 * mt * mt * t, 3 * mt * t * t, t * t * t
+        out.append((a * p0[0] + b * c0[0] + c * c1[0] + d * p1[0],
+                    a * p0[1] + b * c0[1] + c * c1[1] + d * p1[1]))
+    return out
+
+
+def bezier_transition(p0: Point, p1: Point, t0: Point, t1: Point,
+                      strength: float = 0.4, samples: int = 12) -> list[Point]:
+    """Smooth cubic Bézier joining two spines: leaves ``p0`` along ``+t0`` and
+    arrives at ``p1`` along ``+t1`` (t1 is the heading the curve continues *past*
+    p1, so the control point is pulled back along ``-t1``). ``t0``/``t1`` are the
+    two spines' local-frame tangents; this is the thumb-cluster transition."""
+    d = math.hypot(p1[0] - p0[0], p1[1] - p0[1])
+    k = strength * d
+    c0 = (p0[0] + t0[0] * k, p0[1] + t0[1] * k)
+    c1 = (p1[0] - t1[0] * k, p1[1] - t1[1] * k)
+    return cubic_bezier(p0, c0, c1, p1, samples)

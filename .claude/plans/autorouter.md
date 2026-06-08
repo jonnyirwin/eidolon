@@ -4,7 +4,7 @@ Domain-specific autorouter for Ergogen keyboard PCBs, living in `router/`. Full
 design brief: `autorouter-prompt.md`. Status notes: `router/README.md`,
 `router/RECOVERED_STATUS.md`.
 
-## Done — matrix routing + vias (prompt steps 1–8)
+## Done — matrix routing + vias + thumb Bézier (prompt steps 1–9)
 
 Parses the board, classifies nets, routes the switch **matrix columns** on
 **B.Cu** (73 segments) and the diode **rows** on **F.Cu** (81 segments) as
@@ -26,6 +26,18 @@ for free, drill 0.3 / size 0.6 from the brief) with a B.Cu stub to the switch
 pad. **Validated empirically:** routing with vs without the links closes exactly
 15 ratsnest connections (31→16 unconnected), one per key. Remaining 16
 unconnected = deferred MCU fan-out + power + USB.
+
+**Step 9 done (general capability, per user choice):** `geometry.py` gained
+`cubic_bezier`, `bezier_transition`, `rotate`, `unit`. `cli.py` detects thumb
+switches via the `_thumb` matrix-link token (`thumb_switch_refs`), pulls them
+out of the column spine, and `route_spine` joins each back with a
+`bezier_transition` whose arrival tangent = column exit tangent rotated by the
+thumb's relative `fp_rot` (local frame). **Validated:** geometry unit tests
+incl. a synthetic 25° cluster; on the Phantom (S14/S15, −8°) connectivity stays
+16 unconnected (thumbs still on C3/C4), the C3 join is tangent-continuous
+(dot 0.9985) and lands exactly on the thumb pad with no overshoot. NOTE: the
+separate-multi-key-thumb-spine branch (`len(thumb)≥2`) is exercised only by the
+synthetic test, not this board.
 
 Module map:
 
@@ -59,29 +71,30 @@ cd router && python3 -m router.cli ../output/pcbs/phantom_left.kicad_pcb \
 - No headless KiCad format-upgrade verb; the pcbnew load+save round-trip is the
   upgrade path. Render = `kicad-cli pcb export pdf` → `pdftoppm` → `convert -trim`.
 
-## NEXT — Step 9: thumb-cluster Bézier transitions
+## NEXT — Step 10: split mirror
 
-The two thumb keys (S14/S15) are already threaded into C3/C4 column spines and
-have working matrix-link vias (`thumb_left_thumb`, `thumb_right_thumb`). Step 9
-is about the *transition geometry* where the thumb cluster splays away from the
-main grid at an angle — the straight/Catmull spine segment into the thumbs may
-want a smooth Bézier turn rather than the current sharp entry.
+Ergogen emits both halves; `output/pcbs/` has `phantom_right.kicad_pcb`. The
+brief (line 177) wants the right half to be a **perfect mirror** of the left
+under reflection across the split axis — "route in logical space, transform to
+physical." But the cheap first cut is simply to run the existing pipeline on the
+right-half board (its own pad facts), since each half is a self-contained PCB.
 
-1. Check the thumb keys' rotation (`fp_rot` in the pad facts) and how the C3/C4
-   spine currently enters them (it jumps from S6→S14 at y≈-36→+18, a long span).
-2. Decide whether the prompt's "Bézier transition" means a smoother corner on
-   that long spine segment, or a dedicated short curve. See `autorouter-prompt.md`
-   §"Thumb cluster vias" and the bend/corner notes (lines ~47, ~161).
-3. Likely implement as a corner-rounding pass in `geometry.py` applied to spine
-   segments whose turn angle exceeds a threshold.
+1. Run `python3 -m router.cli ../output/pcbs/phantom_right.kicad_pcb -o … --render`
+   and check it routes/validates the same way (15 vias, rows/cols, thumb Bézier,
+   connectivity).
+2. Confirm the classifier/thumb-detection generalise (net names may differ on
+   the right half — check `R\d+`/`C\d+`/`_thumb` still match).
+3. Decide whether true mirror-identity (reflect left geometry) is needed for this
+   project or whether per-half routing suffices. The brief wants identity; per-
+   half routing is the pragmatic MVP. Likely raise with the user.
 
-Watch-out: the via offset is already rotation-correct (anchored on the diode
-pad), so thumb vias need no special handling — this step is purely the spine
-curve aesthetics/clearance into the rotated keys.
+Watch-out: if the right half's nets are named identically to the left (both are
+`C0..C4`/`R0..R3`), per-half routing is trivially correct. Mirror-identity only
+matters for visual symmetry across the assembled board.
 
 ## Roadmap (remaining prompt steps)
 
-(Step 9 above is next.)
+(Step 10 above is next.)
 9. Thumb-cluster Bézier transitions
 10. Split mirror (likely just re-run on `phantom_right.kicad_pcb`)
 11. MCU fan-out (the deferred GPIO pads on column/row nets)
