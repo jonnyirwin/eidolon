@@ -4,10 +4,11 @@ A domain-specific autorouter for Ergogen keyboard PCBs. It exploits keyboard
 matrix regularity rather than solving general routing — see `../autorouter-prompt.md`
 for the full design brief.
 
-**Status: vertical slice (prompt steps 1–6).** Parses the board, classifies
-nets, and routes the switch **matrix columns** as smooth spines, then renders a
-visual checkpoint. Rows, vias, thumb transitions, mirroring, MCU/USB/power and
-DRC are later milestones — the data model already has the extension points.
+**Status: matrix routing (prompt steps 1–7).** Parses the board, classifies
+nets, and routes the switch **matrix columns** on B.Cu and the diode **rows** on
+F.Cu as smooth spines, then renders a visual checkpoint. Vias, thumb
+transitions, mirroring, MCU/USB/power and DRC are later milestones — the data
+model already has the extension points.
 
 ## Quick start
 
@@ -55,7 +56,12 @@ cli.py       orchestration + render checkpoint
 
 ## Roadmap (remaining prompt steps)
 
-7. Row spines on F.Cu  8. Per-key matrix-link vias  9. Thumb-cluster Bézier
-transitions  10. Split mirror (likely: just re-run on `phantom_right.kicad_pcb`,
-since Ergogen emits both halves)  11. MCU fan-out  12. USB D+/D-  13. Interconnect
-14. Power + GND pour  15. DRC pass  16. YAML config system.
+8. Per-key matrix-link vias  9. Thumb-cluster Bézier transitions  10. Split
+mirror (likely: just re-run on `phantom_right.kicad_pcb`, since Ergogen emits
+both halves)  11. MCU fan-out  12. USB D+/D-  13. Interconnect  14. Power + GND
+pour  15. DRC pass  16. YAML config system.
+
+Columns and rows share one `route_spine(board, klass, footprints)` in `cli.py`;
+`SWITCH_FOOTPRINTS`→B.Cu columns, `DIODE_FOOTPRINTS`→F.Cu rows. The layer is
+read per-net from the pads, so the same code routes either with no convention
+baked in.

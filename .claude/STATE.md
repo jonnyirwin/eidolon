@@ -1,12 +1,13 @@
 # Project state — phantom-ergogen
 
 ## In flight
-**ergogen-route autorouter** (`router/`). Vertical slice (prompt steps 1–6) is
-built and validated: routes the switch matrix **columns** as Catmull-Rom spines
-on B.Cu (73 segments), splices S-expressions into the board, renders a PDF→PNG
-checkpoint, reloads cleanly in pcbnew.
+**ergogen-route autorouter** (`router/`). Matrix routing (prompt steps 1–7)
+built and validated: switch **columns** on B.Cu (73 segs) + diode **rows** on
+F.Cu (81 segs) = 154 Catmull-Rom tracks, spliced as S-expressions, rendered to a
+PDF→PNG checkpoint, reloads cleanly in pcbnew. Step 7 generalised
+`route_columns` into `route_spine(board, klass, footprints)` in `cli.py`.
 
-**Next step: Step 7 — row spines on F.Cu.** Detailed in the active plan.
+**Next step: Step 8 — per-key matrix-link vias.** Detailed in the active plan.
 
 Active plan: `.claude/plans/autorouter.md`
 

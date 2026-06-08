@@ -4,12 +4,20 @@ Domain-specific autorouter for Ergogen keyboard PCBs, living in `router/`. Full
 design brief: `autorouter-prompt.md`. Status notes: `router/README.md`,
 `router/RECOVERED_STATUS.md`.
 
-## Done — vertical slice (prompt steps 1–6)
+## Done — matrix routing (prompt steps 1–7)
 
-Parses the board, classifies nets, routes the switch **matrix columns** as
-centripetal Catmull-Rom spines on **B.Cu** (73 segments, all 5 columns + thumb
-keys), splices `(segment …)` S-expressions into the normalised board, and
-renders a PDF→PNG checkpoint. Reloads cleanly in pcbnew.
+Parses the board, classifies nets, routes the switch **matrix columns** on
+**B.Cu** (73 segments) and the diode **rows** on **F.Cu** (81 segments) as
+centripetal Catmull-Rom spines — 154 tracks total. Splices `(segment …)`
+S-expressions into the normalised board and renders a PDF→PNG checkpoint.
+Reloads cleanly in pcbnew (154 tracks).
+
+**Step 7 done:** `route_columns` was generalised into
+`route_spine(board, klass, footprints)` in `cli.py`; columns =
+`(COLUMN, SWITCH_FOOTPRINTS)`, rows = `(ROW, DIODE_FOOTPRINTS={"diode_sod123"})`.
+The routing layer is read per-net from the pads (B.Cu cols / F.Cu rows), nothing
+assumed. Each row net also carries one `xiao_ble` MCU pad, deferred to fan-out
+exactly like the column GPIO pads.
 
 Module map:
 
@@ -43,42 +51,30 @@ cd router && python3 -m router.cli ../output/pcbs/phantom_left.kicad_pcb \
 - No headless KiCad format-upgrade verb; the pcbnew load+save round-trip is the
   upgrade path. Render = `kicad-cli pcb export pdf` → `pdftoppm` → `convert -trim`.
 
-## NEXT — Step 7: row spines on F.Cu
+## NEXT — Step 8: per-key matrix-link vias
 
-`classify.py` already tags `R\d+` nets as `NetClass.ROW`, and `kwrite.polyline`
-already takes a `layer` arg, so the geometry/write layers need **no change**.
-The work is in `cli.py`.
+`classify.py` already tags the per-key intermediate nets as
+`NetClass.MATRIX_LINK` (15 of them — switch pad 2 → diode pad 1). Each needs a
+via placing the connection from the switch layer (B.Cu) to the diode layer
+(F.Cu), plus short stubs from each pad to the via.
 
-1. **Confirm the diode footprint name.** Run the slice with `--dry-run --verbose`
-   (or inspect the pads JSON) to read the actual `footprint` value for diode
-   pads (README calls it `diode_sod123` / SOD-123). Define
-   `DIODE_FOOTPRINTS = {…}` analogous to `SWITCH_FOOTPRINTS`.
-2. **Generalise, don't copy.** Refactor `route_columns` into a shared
-   `route_spine(board, klass, footprints, *, verbose)` that:
-   - selects `nets_of(board, klass)`,
-   - keeps only pads whose `footprint` is in `footprints` (deferring MCU/other
-     pads, as columns already do),
-   - picks the net's dominant `layer` via the existing `Counter` idiom (will be
-     F.Cu for rows, B.Cu for columns),
-   - orders (`order_along_axis`) + splines (`catmull_rom`) + writes
-     (`kwrite.polyline`).
-   Then `route_columns = route_spine(…, COLUMN, SWITCH_FOOTPRINTS)` and add
-   `route_rows = route_spine(…, ROW, DIODE_FOOTPRINTS)`.
-3. **Wire into `main`:** `elements = route_spine(COLUMN…) + route_spine(ROW…)`.
-   Keep the per-class segment counts in the verbose summary.
-4. **Validate:** re-render the checkpoint; expect ~4–5 horizontal row spines on
-   F.Cu in addition to the column spines on B.Cu, reloading cleanly in pcbnew.
-   Sanity-check row count against the matrix (Phantom row count from the Ergogen
-   config).
+1. Add a `via(...)` emitter to `kwrite.py` alongside `segment` — KiCad
+   `(via (at x y) (size …) (drill …) (layers "F.Cu" "B.Cu") (net code) (uuid …))`.
+   Get default via size/drill from the design rules (check the board's
+   `(setup …)` or the Ergogen footprint).
+2. In `cli.py`, add `route_matrix_links(board)`: for each MATRIX_LINK net, find
+   its switch pad (B.Cu) and diode pad (F.Cu), drop a via — placement choice:
+   at the diode pad, at the switch pad, or midpoint — then a stub segment on
+   each layer from pad to via if they aren't coincident.
+3. Validate: 15 new vias, board reloads, render shows the links. DRC later.
 
-Watch-outs: rows are near-horizontal so PCA should pick the X axis — verify the
-spline doesn't fold back on a stagger; diode pad ordering must follow the
-physical row, not net-name order. If a row net's diode pads aren't collinear
-enough, the centripetal spline still passes through them (acceptable for now).
+Watch-outs: confirm via clears the row/column spines (these per-key nets are
+short and local, so collisions are unlikely at this stage). The MCU pads on
+column/row nets remain deferred to fan-out (step 11).
 
 ## Roadmap (remaining prompt steps)
 
-8. Per-key matrix-link vias (switch pad2 → diode pad1)
+(Step 8 above is next.)
 9. Thumb-cluster Bézier transitions
 10. Split mirror (likely just re-run on `phantom_right.kicad_pcb`)
 11. MCU fan-out (the deferred GPIO pads on column/row nets)

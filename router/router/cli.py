@@ -1,15 +1,15 @@
-"""``ergogen-route`` CLI -- vertical slice: column matrix routing.
+"""``ergogen-route`` CLI -- matrix routing (prompt steps 1-7).
 
-Pipeline (slice scope = prompt steps 1-6):
+Pipeline:
 
     extract (pcbnew normalise + pad facts)
       -> classify nets
-      -> column spines (PCA order + Catmull-Rom)
-      -> write F/B copper segments as S-expressions
+      -> column spines on B.Cu + row spines on F.Cu (PCA order + Catmull-Rom)
+      -> write copper segments as S-expressions
       -> (optional) render a PNG checkpoint
 
-Rows, vias, thumb transitions, mirroring, MCU/USB/power and DRC are later
-milestones with clear extension points already in the model.
+Vias, thumb transitions, mirroring, MCU/USB/power and DRC are later milestones
+with clear extension points already in the model.
 """
 from __future__ import annotations
 
@@ -28,32 +28,36 @@ from .model import Board, NetClass
 
 SIGNAL_WIDTH = 0.25  # mm, min signal trace width from the design rules
 
-# Switch footprint(s): the spine threads these pads. The MCU GPIO pad that also
-# sits on each column net is a fan-out endpoint handled in a later milestone, so
-# it is excluded here to keep the column spine clean.
-SWITCH_FOOTPRINTS = {"PG1350"}
+# Footprints whose pads a matrix spine threads. The MCU GPIO pad that also sits
+# on each matrix net is a fan-out endpoint handled in a later milestone, so any
+# non-matrix footprint (e.g. xiao_ble) is excluded here to keep the spine clean.
+SWITCH_FOOTPRINTS = {"PG1350"}        # columns thread these switch pads (B.Cu)
+DIODE_FOOTPRINTS = {"diode_sod123"}   # rows thread these diode pads    (F.Cu)
 
 
-def route_columns(board: Board, verbose: bool = False) -> list[str]:
-    """Generate column trace segments. Returns S-expression strings."""
+def route_spine(board: Board, klass: NetClass, footprints: set[str],
+                verbose: bool = False) -> list[str]:
+    """Thread one smooth spine per net of ``klass`` through its ``footprints``
+    pads. Columns and rows are the same problem on different layers; the routing
+    layer is read from the pads, never assumed. Returns S-expression strings."""
     elements: list[str] = []
-    for net in sorted(nets_of(board, NetClass.COLUMN), key=lambda n: n.name):
-        switch_pads = [p for p in net.pads if p.footprint in SWITCH_FOOTPRINTS]
-        deferred = len(net.pads) - len(switch_pads)
-        pts = [p.xy for p in switch_pads]
+    for net in sorted(nets_of(board, klass), key=lambda n: n.name):
+        chain_pads = [p for p in net.pads if p.footprint in footprints]
+        deferred = len(net.pads) - len(chain_pads)
+        pts = [p.xy for p in chain_pads]
         if len(pts) < 2:
             if verbose:
-                print(f"  {net.name}: <2 switch pads, skipped")
+                print(f"  {net.name}: <2 matrix pads, skipped")
             continue
-        # Route on the net's dominant copper layer (B.Cu for this board).
-        layer = collections.Counter(p.layer for p in switch_pads).most_common(1)[0][0]
+        # Route on the net's dominant copper layer (B.Cu cols, F.Cu rows here).
+        layer = collections.Counter(p.layer for p in chain_pads).most_common(1)[0][0]
         ordered = order_along_axis(pts)
         spine = catmull_rom(ordered, samples_per_segment=8)
         segs = kwrite.polyline(spine, SIGNAL_WIDTH, layer, net.code)
         elements += segs
         if verbose:
             note = f" (+{deferred} MCU pad deferred to fan-out)" if deferred else ""
-            print(f"  {net.name}: {len(pts)} switch pads on {layer} -> "
+            print(f"  {net.name}: {len(pts)} pads on {layer} -> "
                   f"{len(segs)} segments{note}")
     return elements
 
@@ -95,8 +99,15 @@ def main(argv: list[str] | None = None) -> int:
             counts = collections.Counter(n.klass.value for n in board.nets.values())
             print("net classes:", dict(counts))
 
-        elements = route_columns(board, verbose=args.verbose)
-        print(f"routed {len(elements)} column segments")
+        if args.verbose:
+            print("columns:")
+        elements = route_spine(board, NetClass.COLUMN, SWITCH_FOOTPRINTS,
+                               verbose=args.verbose)
+        if args.verbose:
+            print("rows:")
+        elements += route_spine(board, NetClass.ROW, DIODE_FOOTPRINTS,
+                                verbose=args.verbose)
+        print(f"routed {len(elements)} matrix segments")
 
         if args.dry_run:
             return 0
