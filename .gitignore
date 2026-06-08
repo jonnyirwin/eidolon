@@ -9,8 +9,15 @@ node_modules/
 __pycache__/
 *.pyc
 
-# Generated router render checkpoints
+# Generated router render + view artifacts (open locally in KiCad, not source)
 router/*.png
+router/routed_*.kicad_pcb
+router/*.kicad_pro
+router/*.kicad_prl
+router/fp-lib-table
+router/fp-info-cache
+router/*-backups/
+router/*.lck
 
 # OpenSCAD/STL build artifacts & reference STEP/STL files
 *.stl
