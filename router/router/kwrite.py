@@ -21,6 +21,16 @@ def segment(a: Point, b: Point, width: float, layer: str, net_code: int) -> str:
     )
 
 
+def via(at: Point, size: float, drill: float, net_code: int,
+        layers: tuple[str, str] = ("F.Cu", "B.Cu")) -> str:
+    return (
+        f'\t(via (at {at[0]:.4f} {at[1]:.4f}) '
+        f'(size {size}) (drill {drill}) '
+        f'(layers "{layers[0]}" "{layers[1]}") (net {net_code}) '
+        f'(uuid "{_uuid.uuid4()}"))'
+    )
+
+
 def polyline(points: list[Point], width: float, layer: str, net_code: int) -> list[str]:
     """One segment per consecutive pair of spine sample points."""
     out = []

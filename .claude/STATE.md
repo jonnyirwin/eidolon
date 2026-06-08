@@ -1,13 +1,14 @@
 # Project state — phantom-ergogen
 
 ## In flight
-**ergogen-route autorouter** (`router/`). Matrix routing (prompt steps 1–7)
-built and validated: switch **columns** on B.Cu (73 segs) + diode **rows** on
-F.Cu (81 segs) = 154 Catmull-Rom tracks, spliced as S-expressions, rendered to a
-PDF→PNG checkpoint, reloads cleanly in pcbnew. Step 7 generalised
-`route_columns` into `route_spine(board, klass, footprints)` in `cli.py`.
+**ergogen-route autorouter** (`router/`). Matrix routing + vias (prompt steps
+1–8) built and validated: switch **columns** on B.Cu (73 segs) + diode **rows**
+on F.Cu (81 segs) + 15 B.Cu stubs + **15 per-key transition vias** = 169 segs +
+15 vias. Reloads cleanly in pcbnew. Step 7 = `route_spine(board, klass,
+footprints)`; Step 8 = `kwrite.via` + `route_matrix_links` (via on diode pad,
+B.Cu stub to switch; validated by closing exactly 15 ratsnest links, 31→16).
 
-**Next step: Step 8 — per-key matrix-link vias.** Detailed in the active plan.
+**Next step: Step 9 — thumb-cluster Bézier transitions.** Detailed in the plan.
 
 Active plan: `.claude/plans/autorouter.md`
 

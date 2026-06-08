@@ -27,6 +27,8 @@ from .geometry import catmull_rom, order_along_axis
 from .model import Board, NetClass
 
 SIGNAL_WIDTH = 0.25  # mm, min signal trace width from the design rules
+VIA_DRILL = 0.3      # mm, from the design brief (matrix_transition.drill)
+VIA_SIZE = 0.6       # mm, drill + 2 * 0.15 annular ring
 
 # Footprints whose pads a matrix spine threads. The MCU GPIO pad that also sits
 # on each matrix net is a fan-out endpoint handled in a later milestone, so any
@@ -59,6 +61,32 @@ def route_spine(board: Board, klass: NetClass, footprints: set[str],
             note = f" (+{deferred} MCU pad deferred to fan-out)" if deferred else ""
             print(f"  {net.name}: {len(pts)} pads on {layer} -> "
                   f"{len(segs)} segments{note}")
+    return elements
+
+
+def route_matrix_links(board: Board, verbose: bool = False) -> list[str]:
+    """Place the per-key transition between each switch pad (B.Cu) and its diode
+    pad (F.Cu). Every ``matrix_*`` net spans exactly one pad per layer; we anchor
+    a via on the diode (F.Cu) pad -- so it rotates with the footprint for free --
+    and run a B.Cu stub from the switch pad to it. Returns S-expression strings.
+    """
+    elements: list[str] = []
+    for net in sorted(nets_of(board, NetClass.MATRIX_LINK), key=lambda n: n.name):
+        bcu = [p for p in net.pads if p.layer == "B.Cu"]
+        fcu = [p for p in net.pads if p.layer == "F.Cu"]
+        if len(bcu) != 1 or len(fcu) != 1:
+            if verbose:
+                print(f"  {net.name}: {len(bcu)}xB.Cu/{len(fcu)}xF.Cu, "
+                      "not a simple 2-pad link, skipped")
+            continue
+        switch_pad, diode_pad = bcu[0], fcu[0]
+        elements.append(kwrite.via(diode_pad.xy, VIA_SIZE, VIA_DRILL, net.code))
+        if switch_pad.xy != diode_pad.xy:
+            elements.append(kwrite.segment(switch_pad.xy, diode_pad.xy,
+                                           SIGNAL_WIDTH, "B.Cu", net.code))
+        if verbose:
+            print(f"  {net.name}: via @ {diode_pad.ref} + B.Cu stub from "
+                  f"{switch_pad.ref}")
     return elements
 
 
@@ -107,7 +135,10 @@ def main(argv: list[str] | None = None) -> int:
             print("rows:")
         elements += route_spine(board, NetClass.ROW, DIODE_FOOTPRINTS,
                                 verbose=args.verbose)
-        print(f"routed {len(elements)} matrix segments")
+        if args.verbose:
+            print("matrix links:")
+        elements += route_matrix_links(board, verbose=args.verbose)
+        print(f"routed {len(elements)} matrix elements")
 
         if args.dry_run:
             return 0
