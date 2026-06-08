@@ -25,18 +25,30 @@ from . import kwrite
 from .classify import classify, nets_of
 from .extract import extract
 from .geometry import (bezier_transition, catmull_rom, order_along_axis,
-                       rotate, unit)
+                       principal_axis, rotate, unit)
 from .model import Board, NetClass
 
 SIGNAL_WIDTH = 0.25  # mm, min signal trace width from the design rules
 VIA_DRILL = 0.3      # mm, from the design brief (matrix_transition.drill)
 VIA_SIZE = 0.6       # mm, drill + 2 * 0.15 annular ring
+MATRIX_DETOUR = 6.0  # mm, south drop (switch local +y) so the matrix-link B.Cu
+                     # run rounds the switch body instead of cutting its NPTHs
 
 # Footprints whose pads a matrix spine threads. The MCU GPIO pad that also sits
 # on each matrix net is a fan-out endpoint handled in a later milestone, so any
 # non-matrix footprint (e.g. xiao_ble) is excluded here to keep the spine clean.
 SWITCH_FOOTPRINTS = {"PG1350"}        # columns thread these switch pads (B.Cu)
 DIODE_FOOTPRINTS = {"diode_sod123"}   # rows thread these diode pads    (F.Cu)
+
+# The diode's two pads sit on the same row line (matrix pad1 left, row pad2
+# right). Routing the row straight through pad2 also runs it over the adjacent
+# matrix pad1 + its via -> short. Instead offset the row trace off the pad line
+# and drop a perpendicular stub into each row pad, so it clears pad1 and the via.
+ROW_OFFSET = 2.0  # mm, perpendicular offset of the row spine off its pad line
+                  # (clears the matrix pads even where the row's diodes stagger)
+THUMB_BEZIER_STRENGTH = 0.5  # control-point reach for the thumb transition; high
+                             # enough that the curve hugs south out of the column
+                             # before turning, clearing the bottom key's matrix link
 
 # A switch belongs to the thumb cluster if its per-key matrix-link net carries
 # one of these tokens (Ergogen's idiomatic thumb naming). Thumb keys break
@@ -63,6 +75,24 @@ def _spine_through(pts, layer, net_code):
     ordered = order_along_axis(pts)
     spine = catmull_rom(ordered, samples_per_segment=8)
     return ordered, spine, kwrite.curve(spine, SIGNAL_WIDTH, layer, net_code)
+
+
+def _offset_spine(pts, layer, net_code, offset):
+    """Like ``_spine_through`` but routes the spine offset perpendicular to its
+    principal axis, with a short perpendicular stub from each pad to the offset
+    trace. Keeps the run clear of pads sitting on the pad line (e.g. the row's
+    matrix-pad neighbour). Offset is forced to the +y side for a stable result."""
+    ordered = order_along_axis(pts)
+    ax = principal_axis(ordered)
+    perp = (-ax[1], ax[0])
+    if perp[1] < 0:                       # force a consistent side (PCA sign is arbitrary)
+        perp = (-perp[0], -perp[1])
+    off = [(p[0] + perp[0] * offset, p[1] + perp[1] * offset) for p in ordered]
+    spine = catmull_rom(off, samples_per_segment=8)
+    segs = kwrite.curve(spine, SIGNAL_WIDTH, layer, net_code)
+    for p, op in zip(ordered, off):       # perpendicular stub pad -> offset trace
+        segs.append(kwrite.segment(p, op, SIGNAL_WIDTH, layer, net_code))
+    return ordered, spine, segs
 
 
 def _exit_tangent(spine, toward) -> tuple:
@@ -94,18 +124,20 @@ def _thumb_transition(main_spine, thumb_pads, main_rot, layer, net_code):
             else t_ordered[-1]
     else:
         p1, t_segs = tpts[0], []
-    bend = bezier_transition(p0, p1, t0, t1)
+    bend = bezier_transition(p0, p1, t0, t1, strength=THUMB_BEZIER_STRENGTH)
     return kwrite.curve(bend, SIGNAL_WIDTH, layer, net_code) + t_segs
 
 
 def route_spine(board: Board, klass: NetClass, footprints: set[str],
                 thumb_refs: frozenset[str] = frozenset(),
+                offset: float = 0.0,
                 verbose: bool = False) -> list[str]:
     """Thread one smooth spine per net of ``klass`` through its ``footprints``
     pads. Columns and rows are the same problem on different layers; the routing
     layer is read from the pads, never assumed. Switches in ``thumb_refs`` are
     split off into a separate spine group joined back by a Bezier transition.
-    Returns S-expression strings."""
+    ``offset`` (mm) routes the spine offset off the pad line with perpendicular
+    stubs (rows, to clear the matrix pad/via). Returns S-expression strings."""
     elements: list[str] = []
     for net in sorted(nets_of(board, klass), key=lambda n: n.name):
         chain_pads = [p for p in net.pads if p.footprint in footprints]
@@ -118,7 +150,11 @@ def route_spine(board: Board, klass: NetClass, footprints: set[str],
             continue
         # Route on the net's dominant copper layer (B.Cu cols, F.Cu rows here).
         layer = collections.Counter(p.layer for p in main_pads).most_common(1)[0][0]
-        _, spine, segs = _spine_through([p.xy for p in main_pads], layer, net.code)
+        pad_pts = [p.xy for p in main_pads]
+        if offset:
+            _, spine, segs = _offset_spine(pad_pts, layer, net.code, offset)
+        else:
+            _, spine, segs = _spine_through(pad_pts, layer, net.code)
         elements += segs
         thumb_note = ""
         if thumb_pads:
@@ -151,13 +187,22 @@ def route_matrix_links(board: Board, verbose: bool = False) -> list[str]:
                       "not a simple 2-pad link, skipped")
             continue
         switch_pad, diode_pad = bcu[0], fcu[0]
-        elements.append(kwrite.via(diode_pad.xy, VIA_SIZE, VIA_DRILL, net.code))
-        if switch_pad.xy != diode_pad.xy:
-            elements.append(kwrite.segment(switch_pad.xy, diode_pad.xy,
-                                           SIGNAL_WIDTH, "B.Cu", net.code))
+        # The straight switch-pad -> diode-pad diagonal cuts through the switch's
+        # alignment NPTH, and on the thumb columns the all-B.Cu run is crossed by
+        # the column's thumb Bezier (topologically unavoidable on one layer).
+        # So: drop south (clear side, switch local frame) to a waypoint, place the
+        # via there in open space, and run the long west leg on F.Cu into the
+        # diode pad -- leaving only a short B.Cu stub that conflicts with nothing.
+        off = rotate((0.0, MATRIX_DETOUR), switch_pad.fp_rot)
+        waypoint = (switch_pad.x + off[0], switch_pad.y + off[1])
+        elements.append(kwrite.via(waypoint, VIA_SIZE, VIA_DRILL, net.code))
+        elements += kwrite.polyline([switch_pad.xy, waypoint],
+                                    SIGNAL_WIDTH, "B.Cu", net.code)
+        elements += kwrite.polyline([waypoint, diode_pad.xy],
+                                    SIGNAL_WIDTH, "F.Cu", net.code)
         if verbose:
-            print(f"  {net.name}: via @ {diode_pad.ref} + B.Cu stub from "
-                  f"{switch_pad.ref}")
+            print(f"  {net.name}: B.Cu stub {switch_pad.ref} -> via -> F.Cu to "
+                  f"{diode_pad.ref}")
     return elements
 
 
@@ -206,7 +251,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.verbose:
             print("rows:")
         elements += route_spine(board, NetClass.ROW, DIODE_FOOTPRINTS,
-                                verbose=args.verbose)
+                                offset=ROW_OFFSET, verbose=args.verbose)
         if args.verbose:
             print("matrix links:")
         elements += route_matrix_links(board, verbose=args.verbose)
