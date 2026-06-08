@@ -143,6 +143,59 @@ openscad -D 'part="top"'    -o top_left.stl    case/case_left.scad
 Key params (top of the .scad): `wall`, `floor_t`, `pcb_t`, `gap`, `plate_t`,
 `sock_d`. Total height ≈ `floor_t + pcb_t + gap + plate_t` ≈ 8 mm.
 
+### Bottom shell
+
+`case/phantom_case_bottom.scad` nests inside the top case from below. It
+shares the outline, switches, and bolt positions with `phantom_case.scad`
+via `include` (the top file skips its own render when invoked from the
+bottom file via the `SUPPRESS_TOP` flag).
+
+```sh
+openscad -o phantom_case.stl        case/phantom_case.scad
+openscad -o phantom_case_bottom.stl case/phantom_case_bottom.scad
+```
+
+Geometry (z up):
+- z ∈ [−0.9, 0]: exterior plate matching the top case outer footprint —
+  adds 0.9 mm to the assembled case height.
+- z ∈ [0, 2.1]: nesting lip that slips into the top case cavity. PCB
+  rests on the lip top at z=2.1 (its underside).
+- Per-switch hot-swap socket pockets (16 × 7 × 1 mm, rotated to match
+  each switch angle) cut into the lip top — combined with the 2.10 mm
+  under-PCB cavity in the top case, that gives 3.1 mm clearance for
+  the Kailh PG1350 socket body (1.8 mm) + solder fillets.
+- M2 hex nut pockets (4.0 mm AF × 1.8 mm) in the bottom face at the
+  four bolt positions.
+
+### Mounting hardware
+
+| Part | Spec | Count |
+|---|---|---|
+| Socket cap bolt | **M2 × 12 mm**, hex socket | 4 per half |
+| Hex nut | **M2 (4.0 mm AF)** | 4 per half |
+
+The bolt head sinks 1 mm into the deck-top pocket; the shaft passes
+through the PCB and into the nut captured in the bottom shell. With a
+10 mm shaft, ~3.5 threads engage the nut and nothing protrudes past
+the bottom face.
+
+### MCU acrylic window
+
+The top case has a rebate above the XIAO with retention lips on the two short
+ends; cut a piece of clear 1.5 mm acrylic to drop in:
+
+| Dimension | Size |
+|---|---|
+| Width (x, along the case-edge direction) | **20.3 mm** |
+| Length (y, USB end → opposite short edge) | **22.8 mm** |
+| Thickness | **1.5 mm** |
+| Fit clearance | up to 0.2 mm undersize per edge is fine for slip-fit |
+
+Install: angle the acrylic, slip the +y short edge under the **square lip
+(lip A)**, then press the -y short edge down — the **chamfered lip (lip B)**
+guides the acrylic in. Once seated, both lips hold it captive; access the MCU
+by removing the bottom case rather than the window.
+
 **Still to do on the case:**
 - **PCB mounting** — the screw posts sit just inside the edge; confirm they clear
   the PCB or add matching mounting holes in the Ergogen board.

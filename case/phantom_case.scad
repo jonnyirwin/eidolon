@@ -62,8 +62,17 @@ usb_z0   = plate_bot + 0.7;
 // Acrylic cover over the XIAO through-hole: shallow rebate in the top deck,
 // acrylic drops in flush with the deck top and rests on a ledge round the
 // pocket. With SMD mount there's no MCU bump, so the rebate sits in the deck.
-acrylic_t     = 1.5;       // acrylic thickness = rebate depth
+acrylic_t     = 1.5;       // acrylic thickness
 acrylic_ledge = 1.0;       // ledge each side (rebate footprint > pocket footprint)
+// Retention lips: deck material above the acrylic on the +/-y short ends that
+// overhangs by lip_overhang, capturing the acrylic. One-time install: angle
+// the acrylic to slip one short edge under one lip, then bow the acrylic
+// slightly to push the other short edge past the second lip.
+lip_t       = 0.6;        // lip vertical thickness (~3 print layers at 0.2mm)
+lip_overhang= 0.8;        // lip A inward projection (full flat); lip B same width
+                          // but flat for lip_b_flat with the rest chamfered.
+lip_b_flat  = 0.4;        // lip B's flat retention width at the inner end
+                          // (lip_overhang - lip_b_flat = chamfer width)
 // Battery pocket — 301230 LiPo cell (3.0 x 12 x 30 mm) sits ON TOP of the PCB
 // in the empty palm-rest area, hidden between the PCB and the underside of the
 // deck. Pocket is cut UPWARD from plate_bot through the plate into the deck so
@@ -83,6 +92,19 @@ sw_z     = plate_bot + 1.5;// slot vertical centre = actuator height above the P
 sw_slot_w = 8.0;           // slot width  (y, along slider travel + cap)
 sw_slot_h = 4.0;           // slot height (z)
 sw_slot_inward = 5.0;      // how much the slot extends into the case body (-x)
+// M2 socket-cap case bolts at 4 corners (KiCad coords). Head sinks into a
+// pocket on the deck top; shaft passes through PCB and into a hex-nut pocket
+// in the bottom shell. Positions chosen to clear all switches, the MCU pocket,
+// the battery pocket, and the power switch slot.
+bolts = [
+    [ 37,  22],   // TL — inside upper-left arc, above pinky col
+    [115,  24],   // TR — above switch 3, clear of MCU pocket
+    [ 38,  82],   // BL — left of battery pocket
+    [137,  78],   // BR — between thumb 14 pad and right case wall, biased right
+];
+m2_head_d  = 4.5;  // socket cap head pocket dia (3.8mm head + 0.7 clearance)
+m2_head_h  = 2.0;  // head pocket depth = head height -> head top flush w/ deck
+m2_shaft_d = 2.2;  // bolt shaft clearance hole
 arc_n  = 24;     // points sampled per arc corner
 $fn = 64;
 
@@ -276,15 +298,45 @@ module usb_port() {
         }
 }
 
-// XIAO acrylic-cover rebate: shallow pocket in the top deck, acrylic_t deep,
-// larger than the XIAO pocket by acrylic_ledge per side so the acrylic drops
-// in from above and rests on a ledge of deck round the pocket.
-module acrylic_rebate()
-    translate([xiao_pos[0], xiao_pos[1], height - acrylic_t])
+// XIAO acrylic-cover rebate: stepped pocket in the top deck.
+//   - Bottom acrylic_t mm: full footprint, where the acrylic sits.
+//   - Upper lip_t mm: asymmetric lips on the +/-y short ends.
+//       Lip A (+y): square — full lip_overhang flat overhang for firm retention.
+//       Lip B (-y): lip_b_flat flat overhang at the inner tip, with the outer
+//                   portion chamfered up to the deck top so the acrylic edge
+//                   slides under during the one-time snap-in install.
+module acrylic_rebate() {
+    fw = xiao_w + 2*(xiao_clr + acrylic_ledge);
+    fh = xiao_l + 2*(xiao_clr + acrylic_ledge);
+    rebate_depth = acrylic_t + lip_t;
+    // y extents of the lip-level cutout at the bottom (z = h - lip_t):
+    //   lip A side: cutout up to (fh/2 - lip_overhang)  — lip A's flat
+    //   lip B side: cutout down to (-fh/2 + lip_b_flat) — lip B's flat
+    bot_y_min = -fh/2 + lip_b_flat;
+    bot_y_max =  fh/2 - lip_overhang;
+    // y extents at the top (z = h): both lips fully grown to lip_overhang.
+    top_y_min = -fh/2 + lip_overhang;
+    top_y_max =  fh/2 - lip_overhang;
+    translate([xiao_pos[0], xiao_pos[1], 0])
         rotate([0, 0, -xiao_rot])
-            linear_extrude(acrylic_t + 0.1)
-                square([xiao_w + 2*(xiao_clr + acrylic_ledge),
-                        xiao_l + 2*(xiao_clr + acrylic_ledge)], center = true);
+            union() {
+                // Lip section: hull from the bottom (asymmetric y range, lip
+                // B has lip_b_flat retention) to the top (both lips at full
+                // lip_overhang). Slanted face on the -y side = lip B chamfer.
+                hull() {
+                    translate([0, (bot_y_min + bot_y_max)/2, height - lip_t])
+                        linear_extrude(0.01)
+                            square([fw, bot_y_max - bot_y_min], center = true);
+                    translate([0, (top_y_min + top_y_max)/2, height - 0.01])
+                        linear_extrude(0.02)
+                            square([fw, top_y_max - top_y_min], center = true);
+                }
+                // Acrylic well
+                translate([0, 0, height - rebate_depth])
+                    linear_extrude(acrylic_t + 0.01)
+                        square([fw, fh], center = true);
+            }
+}
 
 // Battery pocket: cut from plate_bot upward to plate_bot+bat_depth, in an
 // empty area of the plate/deck above the PCB (no switches there). Pocket
@@ -335,17 +387,37 @@ module body()
         }
     }
 
-// y-down (KiCad) -> y-up (upright, matches PCB front view); grow by gap+wall.
-// Body and cutouts share the KiCad frame, then the whole part is mirrored.
-mirror([0, 1, 0])
-    difference() {
-        body();
-        switch_cutouts();
-        recess_pockets();
-        cavity();
-        xiao_cutout();
-        acrylic_rebate();
-        usb_port();
-        battery_pocket();
-        power_slot();
+// Bolt holes: head pocket recessed into the deck top, shaft hole through.
+module bolt_holes()
+    for (b = bolts) {
+        translate([b[0], b[1], height - m2_head_h])
+            linear_extrude(m2_head_h + 0.1)
+                circle(d = m2_head_d, $fn = 32);
+        translate([b[0], b[1], -1])
+            linear_extrude(height + 2)
+                circle(d = m2_shaft_d, $fn = 32);
     }
+
+// Full top-case shape (y-down KiCad frame, then mirror([0,1,0]) flips to the
+// upright view). Exposed as a module so phantom_case_bottom.scad can include
+// it in a preview render.
+module top_case()
+    mirror([0, 1, 0])
+        difference() {
+            body();
+            switch_cutouts();
+            recess_pockets();
+            cavity();
+            xiao_cutout();
+            acrylic_rebate();
+            usb_port();
+            battery_pocket();
+            power_slot();
+            bolt_holes();
+        }
+
+// SUPPRESS_TOP lets phantom_case_bottom.scad `include` this file for shared
+// geometry (outline, switches, bolts, top_case module) without also rendering
+// the top case here.
+if (is_undef(SUPPRESS_TOP))
+    top_case();
