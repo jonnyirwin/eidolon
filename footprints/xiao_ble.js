@@ -53,7 +53,6 @@ module.exports = {
       (fp_text reference "${p.ref}" (at 0 11 ${p.r}) (layer ${p.side}.SilkS) ${p.ref_hide} (effects (font (size 1 1) (thickness 0.15))))
       (fp_text value "" (at 0 0) (layer ${p.side}.SilkS) hide (effects (font (size 1 1) (thickness 0.15))))
       (fp_text user "XIAO" (at 0 8.5 ${p.r}) (layer ${p.side}.SilkS) (effects (font (size 1 1) (thickness 0.15))))
-      (fp_text user "USB" (at 0 -9.5 ${p.r}) (layer ${p.side}.SilkS) (effects (font (size 0.8 0.8) (thickness 0.12))))
       ${'' /* board outline 17.78 x 21 mm */}
       (fp_line (start -8.89 -10.5) (end  8.89 -10.5) (layer ${p.side}.SilkS) (width 0.12))
       (fp_line (start -8.89  10.5) (end  8.89  10.5) (layer ${p.side}.SilkS) (width 0.12))
