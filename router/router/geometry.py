@@ -110,6 +110,69 @@ def cubic_bezier(p0: Point, c0: Point, c1: Point, p1: Point,
     return out
 
 
+def circle_from_3(a: Point, b: Point, c: Point):
+    """Centre + radius of the circle through 3 points, or None if collinear."""
+    ax, ay = a; bx, by = b; cx, cy = c
+    d = 2 * (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by))
+    if abs(d) < 1e-9:
+        return None
+    a2, b2, c2 = ax * ax + ay * ay, bx * bx + by * by, cx * cx + cy * cy
+    ux = (a2 * (by - cy) + b2 * (cy - ay) + c2 * (ay - by)) / d
+    uy = (a2 * (cx - bx) + b2 * (ax - cx) + c2 * (bx - ax)) / d
+    return (ux, uy), math.hypot(ax - ux, ay - uy)
+
+
+def _point_seg_dist(p: Point, a: Point, b: Point) -> float:
+    ax, ay = a; bx, by = b; px, py = p
+    dx, dy = bx - ax, by - ay
+    L = dx * dx + dy * dy
+    if L < 1e-12:
+        return math.hypot(px - ax, py - ay)
+    t = max(0.0, min(1.0, ((px - ax) * dx + (py - ay) * dy) / L))
+    return math.hypot(px - (ax + t * dx), py - (ay + t * dy))
+
+
+def fit_arcs(pts: list[Point], tol: float = 0.05):
+    """Greedily collapse a dense sample polyline into native circular arcs and
+    straight segments. At each step it grows *both* a straight run (points within
+    ``tol`` mm of the chord) and a circular arc (points within ``tol`` of the
+    circle through start/mid/end), then keeps whichever reaches further -- so a
+    dead-straight column becomes one segment and a curve becomes a few arcs.
+    Endpoints are preserved exactly, so a fitted spine still begins and ends on
+    its pads. Yields ``("arc", start, mid, end)`` or ``("seg", start, end)``."""
+    out = []
+    n = len(pts)
+    i = 0
+    while i < n - 1:
+        # Grow a straight segment as far as the chord stays within tol.
+        seg_j = i + 1
+        while seg_j + 1 < n and all(
+                _point_seg_dist(p, pts[i], pts[seg_j + 1]) <= tol
+                for p in pts[i + 1:seg_j + 1]):
+            seg_j += 1
+        # Grow a circular arc as far as the circle stays within tol.
+        arc_choice, arc_j = None, i + 1
+        j = i + 2
+        while j < n:
+            mid = pts[(i + j) // 2]
+            circ = circle_from_3(pts[i], mid, pts[j])
+            if circ is None:
+                break
+            (cx, cy), r = circ
+            if any(abs(math.hypot(p[0] - cx, p[1] - cy) - r) > tol
+                   for p in pts[i + 1:j]):
+                break
+            arc_choice, arc_j = ("arc", pts[i], mid, pts[j]), j
+            j += 1
+        if arc_choice is not None and arc_j > seg_j:
+            out.append(arc_choice)
+            i = arc_j
+        else:
+            out.append(("seg", pts[i], pts[seg_j]))
+            i = seg_j
+    return out
+
+
 def bezier_transition(p0: Point, p1: Point, t0: Point, t1: Point,
                       strength: float = 0.4, samples: int = 12) -> list[Point]:
     """Smooth cubic Bézier joining two spines: leaves ``p0`` along ``+t0`` and

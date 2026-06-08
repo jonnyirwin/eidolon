@@ -11,7 +11,15 @@ reloads cleanly. Step 7 = `route_spine`; Step 8 = `route_matrix_links`; Step 9 =
 capability (unit-tested to 25°); on the Phantom it activates at −8° with
 tangent-continuous joins (dot 0.9985).
 
+**Trace-quality track A (native arcs): DONE** — `geometry.fit_arcs` +
+`kwrite.curve` emit native `(arc …)`/`(segment …)` (matrix now 26 arcs + 24 segs
++ 15 vias, was ~185 chords; connectivity still 16). Track B (parallel-offset /
+river) remains, folded into steps 11 (MCU fan-out) + 14 (power).
+
 **Next step: Step 10 — split mirror (route `phantom_right.kicad_pcb`).** In plan.
+(User is quality-focused: the roadmap now explicitly carries the brief's visual
+best practices — arcs done, river pinned to fan-out/power. See plan "Trace-quality
+track".)
 
 Active plan: `.claude/plans/autorouter.md`
 

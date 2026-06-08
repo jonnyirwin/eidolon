@@ -62,7 +62,7 @@ def _spine_through(pts, layer, net_code):
     Returns (ordered_pts, spine_samples, segment_strings)."""
     ordered = order_along_axis(pts)
     spine = catmull_rom(ordered, samples_per_segment=8)
-    return ordered, spine, kwrite.polyline(spine, SIGNAL_WIDTH, layer, net_code)
+    return ordered, spine, kwrite.curve(spine, SIGNAL_WIDTH, layer, net_code)
 
 
 def _exit_tangent(spine, toward) -> tuple:
@@ -94,8 +94,8 @@ def _thumb_transition(main_spine, thumb_pads, main_rot, layer, net_code):
             else t_ordered[-1]
     else:
         p1, t_segs = tpts[0], []
-    curve = bezier_transition(p0, p1, t0, t1)
-    return kwrite.polyline(curve, SIGNAL_WIDTH, layer, net_code) + t_segs
+    bend = bezier_transition(p0, p1, t0, t1)
+    return kwrite.curve(bend, SIGNAL_WIDTH, layer, net_code) + t_segs
 
 
 def route_spine(board: Board, klass: NetClass, footprints: set[str],

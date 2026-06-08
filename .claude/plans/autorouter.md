@@ -95,6 +95,36 @@ matters for visual symmetry across the assembled board.
 ## Roadmap (remaining prompt steps)
 
 (Step 10 above is next.)
+
+11. MCU fan-out — **river-style**: parallel offsets at equal spacing curving
+    together (brief 125–129); this convergent bundle is where the river-delta
+    visual actually lives.
+12. USB D+/D-   13. Interconnect
+14. Power + GND pour — wider 0.5 mm rails + river bundling
+15. DRC pass    16. YAML config system
+
+### Trace-quality track (aesthetic best practices — NOT auto-covered by 10–16)
+
+The numbered steps deliver electrical coverage; the brief's *visual* quality
+needs these two cross-cutting passes, added explicitly so they aren't missed:
+
+- **A. Native arc output — DONE.** `geometry.fit_arcs` greedily collapses each
+  spline sample polyline into native `(arc …)` + `(segment …)` (≤0.05 mm fit
+  tol, grows both a chord run and a circle and keeps whichever reaches further);
+  emitted via `kwrite.curve`, repointed from `kwrite.polyline` in `_spine_through`
+  and `_thumb_transition`. Result: matrix dropped from ~185 chords to 26 arcs +
+  24 segments + 15 vias, connectivity still 16 unconnected, file↔pcbnew arc
+  parity exact, no degenerate arcs. Validated by unit tests (circle→1 arc,
+  line→1 seg, 0 mm deviation) + board reload.
+- **B. Parallel-offset + perpendicular stubs** — route traces as offsets from
+  the spine with stubs to pads (brief 125), the structural prerequisite for true
+  **river bundling**. Highest payoff folded into steps 11 (fan-out) and 14
+  (power), where multiple nets share a corridor. (In the bare matrix each
+  column/row is a lone net, so offsetting a single spine is near-cosmetic — the
+  river only appears once nets bundle.)
+
+**Verdict for "does the plan reach the visual goals":** yes, *with* track A+B
+added above. Steps 10–16 alone do not.
 9. Thumb-cluster Bézier transitions
 10. Split mirror (likely just re-run on `phantom_right.kicad_pcb`)
 11. MCU fan-out (the deferred GPIO pads on column/row nets)

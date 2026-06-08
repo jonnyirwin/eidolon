@@ -8,9 +8,9 @@ for the full design brief.
 nets, routes the switch **matrix columns** on B.Cu and the diode **rows** on
 F.Cu as smooth spines, splays each **thumb key into its own spine group joined
 by a Bézier** in the thumb's local frame, drops a **per-key transition via**
-linking each switch pad to its diode, then renders a visual checkpoint.
-Mirroring, MCU/USB/power and DRC are later milestones — the data model already
-has the extension points.
+linking each switch pad to its diode, emits everything as **native KiCad arcs**
+(not faceted segments), then renders a visual checkpoint. Mirroring, MCU/USB/power
+and DRC are later milestones — the data model already has the extension points.
 
 ## Quick start
 
@@ -59,8 +59,29 @@ cli.py       orchestration + render checkpoint
 ## Roadmap (remaining prompt steps)
 
 10. Split mirror (likely: just re-run on `phantom_right.kicad_pcb`, since Ergogen
-emits both halves)  11. MCU fan-out  12. USB D+/D-  13. Interconnect  14. Power +
-GND pour  15. DRC pass  16. YAML config system.
+emits both halves)  11. MCU fan-out **(river-style: parallel offsets at equal
+spacing, curving together — this bundle is where the "river delta" visual lives,
+brief lines 125–129)**  12. USB D+/D-  13. Interconnect  14. Power + GND pour
+**(wider 0.5mm rails + river bundling)**  15. DRC pass  16. YAML config system.
+
+### Trace-quality track (the brief's aesthetic best practices)
+
+These are cross-cutting refinements, not net-type coverage, so they sit outside
+the numbered net steps:
+
+- **A. Native arc segments — DONE.** `geometry.fit_arcs` greedily collapses each
+  dense spline sample polyline into native KiCad `(arc …)` + `(segment …)` tracks
+  (≤0.05 mm fit tolerance): straight columns become one segment, staggered rows
+  and thumb Béziers become smooth arcs. Emitted via `kwrite.curve`. Cut the
+  matrix from ~185 straight chords to 26 arcs + 24 segments; connectivity
+  unchanged, file↔pcbnew arc parity exact, no degenerate arcs.
+- **B. Parallel-offset + stubs** — route each trace as an offset from its spine
+  with short perpendicular stubs to the pads, rather than the spine straight
+  through pad centres (brief line 125). Prerequisite for true river bundling;
+  highest payoff combined with steps 11 & 14.
+
+Without A and B the output is electrically correct but not yet the "flowing,
+beautiful" board the brief targets.
 
 Thumb handling (step 9): a switch is a thumb if its matrix-link net carries a
 `_thumb` token; such keys are pulled out of the column spine into their own

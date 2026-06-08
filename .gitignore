@@ -9,6 +9,9 @@ node_modules/
 __pycache__/
 *.pyc
 
+# Generated router render checkpoints
+router/*.png
+
 # OpenSCAD/STL build artifacts & reference STEP/STL files
 *.stl
 *.STL

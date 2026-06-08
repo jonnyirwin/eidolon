@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import uuid as _uuid
 
-from .geometry import Point
+from .geometry import Point, fit_arcs
 
 
 def segment(a: Point, b: Point, width: float, layer: str, net_code: int) -> str:
@@ -31,13 +31,40 @@ def via(at: Point, size: float, drill: float, net_code: int,
     )
 
 
+def arc(start: Point, mid: Point, end: Point, width: float, layer: str,
+        net_code: int) -> str:
+    return (
+        f'\t(arc (start {start[0]:.4f} {start[1]:.4f}) '
+        f'(mid {mid[0]:.4f} {mid[1]:.4f}) '
+        f'(end {end[0]:.4f} {end[1]:.4f}) '
+        f'(width {width}) (layer "{layer}") (net {net_code}) '
+        f'(uuid "{_uuid.uuid4()}"))'
+    )
+
+
 def polyline(points: list[Point], width: float, layer: str, net_code: int) -> list[str]:
-    """One segment per consecutive pair of spine sample points."""
+    """One segment per consecutive pair of spine sample points (no arc fitting)."""
     out = []
     for a, b in zip(points, points[1:]):
         if a == b:
             continue
         out.append(segment(a, b, width, layer, net_code))
+    return out
+
+
+def curve(points: list[Point], width: float, layer: str, net_code: int) -> list[str]:
+    """Emit a sample polyline as native ``(arc ...)`` + ``(segment ...)`` tracks,
+    fitting circular arcs to curved runs (per the brief's arc-at-turns rule)."""
+    out = []
+    for prim in fit_arcs(points):
+        if prim[0] == "arc":
+            _, a, m, b = prim
+            if a != b:
+                out.append(arc(a, m, b, width, layer, net_code))
+        else:
+            _, a, b = prim
+            if a != b:
+                out.append(segment(a, b, width, layer, net_code))
     return out
 
 
