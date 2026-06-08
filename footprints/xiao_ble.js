@@ -4,11 +4,12 @@
 //     drill OFFSET 0.475 toward the board center -> half-holes for soldering
 //     to the XIAO's castellated edge, while keeping a normal copper pad on
 //     the inside that can route on either layer.
-//   - 4 inner thru-hole pads near the USB end so the XIAO's underside BAT+
-//     test pads are reachable from the bottom layer of the keyboard PCB
-//     (solder battery leads to these from below).
-//   - 2 thru-hole pads at the side reaching the XIAO underside RST + GND for
-//     an optional external reset button.
+//   - 4 inner thru-hole pads near the USB end aligning with the XIAO's underside
+//     SWD debug group (SWDIO / SWCLK / RESET / GND). Left UNCONNECTED here --
+//     access holes only. (Verified against GEIGEIGEIST/TOTEM: these are the
+//     debug pads, NOT the battery -- an earlier revision had this backwards.)
+//   - 2 thru-hole pads at the side reaching the XIAO underside BAT + GND -- this
+//     is the actual battery connection (cell -> power switch -> BATT -> here).
 //
 // Local frame: USB end at -y, far end at +y. XIAO is mounted FACE-UP on top
 // of the keyboard PCB so component-side pins map directly (no x-mirror).
@@ -26,7 +27,6 @@ module.exports = {
     GND: { type: 'net', value: 'GND' },
     P3V3: { type: 'net', value: 'P3V3' },
     BAT: { type: 'net', value: 'BAT' },
-    RST: { type: 'net', value: 'RST' },
     D0: { type: 'net', value: 'D0' }, D1: { type: 'net', value: 'D1' },
     D2: { type: 'net', value: 'D2' }, D3: { type: 'net', value: 'D3' },
     D4: { type: 'net', value: 'D4' }, D5: { type: 'net', value: 'D5' },
@@ -75,18 +75,17 @@ module.exports = {
       ${cast('10',  7.62,  2.54, p.P3V3)}
       ${cast('9',   7.62,  5.08, p.GND)}
       ${cast('8',   7.62,  7.62, p.P5V)}
-      ${'' /* BAT access: 4 thru-holes under the XIAO's USB-end backside test
-            pads (BAT+ / charge). Grid 2.54mm in x AND y so you can solder a
-            cell directly on B.Cu without needing a charging resistor. */}
-      ${access('B1', -1.27, -6.032, p.BAT)}
-      ${access('B2',  1.27, -6.032, p.BAT)}
-      ${access('B3', -1.27, -8.572, p.BAT)}
-      ${access('B4',  1.27, -8.572, p.BAT)}
-      ${'' /* RST access: 2 thru-holes lining up with the XIAO's underside RST
-            + adjacent GND pads (left side, ~mid-board). Wire a momentary
-            switch between them for an external reset button. */}
-      ${access('R1', -4.445, -0.317, p.RST)}
-      ${access('R2', -4.445, -2.222, p.GND)}
+      ${'' /* SWD debug group on the XIAO underside near the USB end
+            (SWDIO/SWCLK/RESET/GND). Left UNCONNECTED -- access holes only, not
+            wired into the keyboard. NOTE: these are NOT battery pads. */}
+      ${access('SWDIO',  -1.27, -8.572, '')}
+      ${access('SWCLK',   1.27, -8.572, '')}
+      ${access('RESET',  -1.27, -6.032, '')}
+      ${access('DBG_GND', 1.27, -6.032, '')}
+      ${'' /* Battery: the XIAO underside BAT pad + adjacent GND, at the side
+            ~mid-board. The cell connects here via the power switch on BATT. */}
+      ${access('BAT', -4.445, -0.317, p.BAT)}
+      ${access('GND', -4.445, -2.222, p.GND)}
     )
     `;
   }
