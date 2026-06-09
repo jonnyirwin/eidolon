@@ -1,46 +1,40 @@
-# Project state — phantom-ergogen
+# phantom-ergogen — Work State
+_Last updated: 2026-06-09_
+
+## Done (this session)
+- **Left half routes fully DRC-clean** (0 violations). Matrix cols (B.Cu) + rows
+  (F.Cu) as arcs, per-key transition vias, thumb Béziers. Routing fixes: matrix
+  link south-detour + via-drop-to-F.Cu, row offset 2.0, thumb strength (6d731b2);
+  native arc output (9e574bc); silk footprint fixes (ec655b7).
+- **Two hardware bugs the user caught, fixed:** BAT/RST pads swapped on xiao_ble
+  footprint (ab26cde); mounting-hole + battery positions corrected to match the
+  case — board↔case transform `case = board + (80, 58.97)` (a3b6876).
+- **Right-half outline mirror bug fixed** (f967410): board_right shifts were
+  pre-negated AND auto-flipped by Ergogen → ~18mm off, MCU off-board. Now correct.
+- Router confirmed to **port structurally to the mirrored right half**.
 
 ## In flight
-**ergogen-route autorouter** (`router/`). Steps 1–9 built and validated:
-columns on B.Cu + rows on F.Cu (Catmull-Rom) + 15 per-key transition vias +
-**thumb keys split into their own spine joined by a Bézier** in the thumb's
-local frame. 170 segs + 15 vias, 16 unconnected (all deferred MCU/power/USB),
-reloads cleanly. Step 7 = `route_spine`; Step 8 = `route_matrix_links`; Step 9 =
-`bezier_transition`/`cubic_bezier`/`rotate`/`unit` in geometry + thumb detection
-(`thumb_switch_refs`, `_thumb` token) in `cli.py`. User chose the *general*
-capability (unit-tested to 25°); on the Phantom it activates at −8° with
-tangent-continuous joins (dot 0.9985).
+- **Right half**: footprint placement is now correct per the user's intent (see
+  memory [[phantom-right-half-mirror]] — non-reversible split; sockets/MCU/battery
+  KEEP orientation, only power switch flips; all already correct). Outline fixed.
+  But the right half is **not yet DRC-clean** and routing wasn't re-evaluated on
+  the corrected board.
+- `main` is ~9 commits ahead of origin; nothing pushed (user hasn't asked).
 
-**Trace-quality track A (native arcs): DONE** — `geometry.fit_arcs` +
-`kwrite.curve` emit native `(arc …)`/`(segment …)` (matrix now 26 arcs + 24 segs
-+ 15 vias, was ~185 chords; connectivity still 16). Track B (parallel-offset /
-river) remains, folded into steps 11 (MCU fan-out) + 14 (power).
+## Next
+1. Re-run right-half routing on the corrected board, re-check DRC. Each switch's
+   *local* geometry now matches the left, so it should behave like the left — the
+   earlier "~10 right-half routing violations" were measured pre-fix; re-verify.
+2. Resolve 2 pinky matrix-pad outer-edge near-misses (sub-0.02mm) — small outline
+   relief or accept. Inherent to sockets keeping orientation while position mirrors.
+3. Continue roadmap: 11 MCU fan-out (river aesthetic), 12 USB, 13 interconnect,
+   14 power+GND pour, 15 DRC, 16 YAML config (lifts the Phantom-tuned constants).
 
-**Next step: Step 10 — split mirror (route `phantom_right.kicad_pcb`).** In plan.
-(User is quality-focused: the roadmap now explicitly carries the brief's visual
-best practices — arcs done, river pinned to fan-out/power. See plan "Trace-quality
-track".)
+## Validation gate
+DRC is the gate (`kicad-cli pcb drc`), not connectivity alone — connectivity
+closure misses shorts. Compare routed vs bare-board DRC to isolate "ours".
 
-Active plan: `.claude/plans/autorouter.md`
-
-## Quick validate
-```bash
-cd router && python3 -m router.cli ../output/pcbs/phantom_left.kicad_pcb \
-    -o /tmp/routed_left.kicad_pcb --render /tmp/out.png --verbose
-```
-
-## Don't relearn
-- Layer convention inverted from the prompt: switch pads B.Cu, diode pads F.Cu
-  ⇒ columns route B.Cu, **rows route F.Cu**. Read `pad.layer` (`CuStack()`),
-  never assume. `pad.GetLayer()` lies for these SMD pads.
-- Per-key via = switch→diode `matrix_*` net (MATRIX_LINK), not a col→row hop.
-- `pcbnew` confined to `extract.py`; routing emits raw S-expressions.
-- Render: `kicad-cli pcb export pdf` → `pdftoppm` → `convert -trim`.
-
-## Git
-Branch `main`, ahead of origin by 3 commits. `router/` and
-`autorouter-prompt.md` are untracked (not yet committed).
-
-## Origin
-Recovered from dead session 0bb58741 (2026-06-08) — see
-`router/RECOVERED_STATUS.md`. That session is unrecoverable; do not `--resume`.
+## References
+- Active plan: .claude/plans/autorouter.md
+- Memory: phantom-right-half-mirror.md (right-half mirror intent)
+- Router how-to + transform notes: router/README.md
