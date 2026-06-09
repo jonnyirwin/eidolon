@@ -173,47 +173,49 @@ outlines:
           points:
             - { ref: matrix_middle_bottom, shift: [-42.022, -26.850] }
             - { ref: matrix_middle_bottom, shift: [-36.312, -30.184] }
-  # Right half: the same boundary reflected — written against the mirrored origin
-  # (mirror_matrix_middle_bottom) with x negated.
+  # Right half: the same boundary, anchored at the mirrored origin
+  # (mirror_matrix_middle_bottom). Ergogen already flips x for a mirror_* ref, so
+  # the shifts here are IDENTICAL to board_left (NOT pre-negated) — pre-negating
+  # double-flipped them and pushed the outline ~18mm off the components.
   board_right:
     perimeter:
       what: path
       segments:
         - type: line
           points:
-            - { ref: mirror_matrix_middle_bottom, shift: [36.312, -30.184] }
-            - { ref: mirror_matrix_middle_bottom, shift: [-43.190, -39.836] }
+            - { ref: mirror_matrix_middle_bottom, shift: [-36.312, -30.184] }
+            - { ref: mirror_matrix_middle_bottom, shift: [43.190, -39.836] }
         - type: arc
           points:
-            - { ref: mirror_matrix_middle_bottom, shift: [-47.498, -38.894] }
-            - { ref: mirror_matrix_middle_bottom, shift: [-50.914, -36.106] }
+            - { ref: mirror_matrix_middle_bottom, shift: [47.498, -38.894] }
+            - { ref: mirror_matrix_middle_bottom, shift: [50.914, -36.106] }
         - type: line
           points:
-            - { ref: mirror_matrix_middle_bottom, shift: [-67.272, -7.832] }   # +pcb_pad
+            - { ref: mirror_matrix_middle_bottom, shift: [67.272, -7.832] }   # +pcb_pad
         - type: line
           points:
-            - { ref: mirror_matrix_middle_bottom, shift: [-67.189, 25.872] }   # Pc mirrored
+            - { ref: mirror_matrix_middle_bottom, shift: [67.189, 25.872] }   # Pc
         - type: line
           points:
-            - { ref: mirror_matrix_middle_bottom, shift: [-30.723, 42.761] }   # T mirrored
+            - { ref: mirror_matrix_middle_bottom, shift: [30.723, 42.761] }   # T
         - type: arc
           points:
-            - { ref: mirror_matrix_middle_bottom, shift: [-28.435, 43.519] }   # M mirrored
-            - { ref: mirror_matrix_middle_bottom, shift: [-26.034, 43.733] }   # P2' mirrored
+            - { ref: mirror_matrix_middle_bottom, shift: [28.435, 43.519] }   # M
+            - { ref: mirror_matrix_middle_bottom, shift: [26.034, 43.733] }   # P2'
         - type: line
           points:
-            - { ref: mirror_matrix_middle_bottom, shift: [40.376, 41.952] }
+            - { ref: mirror_matrix_middle_bottom, shift: [-40.376, 41.952] }
         - type: arc
           points:
-            - { ref: mirror_matrix_middle_bottom, shift: [46.646, 38.369] }
-            - { ref: mirror_matrix_middle_bottom, shift: [49.102, 31.578] }
+            - { ref: mirror_matrix_middle_bottom, shift: [-46.646, 38.369] }
+            - { ref: mirror_matrix_middle_bottom, shift: [-49.102, 31.578] }
         - type: line
           points:
-            - { ref: mirror_matrix_middle_bottom, shift: [44.985, -20.939] }
+            - { ref: mirror_matrix_middle_bottom, shift: [-44.985, -20.939] }
         - type: arc
           points:
-            - { ref: mirror_matrix_middle_bottom, shift: [42.022, -26.850] }
-            - { ref: mirror_matrix_middle_bottom, shift: [36.312, -30.184] }
+            - { ref: mirror_matrix_middle_bottom, shift: [-42.022, -26.850] }
+            - { ref: mirror_matrix_middle_bottom, shift: [-36.312, -30.184] }
 
   # ---- case feature outlines (left half), consumed by case/case_left.scad ----
   # Top switch plate: board minus 14mm Choc plate cutouts.
