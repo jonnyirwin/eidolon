@@ -208,10 +208,10 @@ outlines:
         - type: arc
           points:
             - { ref: mirror_matrix_middle_bottom, shift: [-46.646, 38.369] }
-            - { ref: mirror_matrix_middle_bottom, shift: [-49.102, 31.578] }
+            - { ref: mirror_matrix_middle_bottom, shift: [-49.802, 31.578] }   # +0.7mm outward relief: pinky pads (S12/S13) keep socket orientation under mirror, so pad 2 reaches this outer edge
         - type: line
           points:
-            - { ref: mirror_matrix_middle_bottom, shift: [-44.985, -20.939] }
+            - { ref: mirror_matrix_middle_bottom, shift: [-45.685, -20.939] }   # +0.7mm outward relief (paired with the point above)
         - type: arc
           points:
             - { ref: mirror_matrix_middle_bottom, shift: [-42.022, -26.850] }
