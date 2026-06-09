@@ -40,6 +40,8 @@ class PadFact:
     cu_layers: list[str]  # all copper layers (>1 => through-hole)
     x: float           # absolute x in mm
     y: float           # absolute y in mm
+    sx: float          # pad size x in mm
+    sy: float          # pad size y in mm
     fp_x: float        # parent footprint origin x in mm
     fp_y: float        # parent footprint origin y in mm
     fp_rot: float      # parent footprint rotation in degrees
@@ -81,10 +83,49 @@ def extract(in_path: str, out_pcb: str, out_json: str) -> dict:
                 cu_layers=cu_layers,
                 x=pos.x / NM_PER_MM,
                 y=pos.y / NM_PER_MM,
+                sx=pad.GetSize().x / NM_PER_MM,
+                sy=pad.GetSize().y / NM_PER_MM,
                 fp_x=fpos.x / NM_PER_MM,
                 fp_y=fpos.y / NM_PER_MM,
                 fp_rot=fp.GetOrientationDegrees(),
             ))
+
+    # No-net mechanical drills (choc poles + stabiliser holes, mounting holes).
+    # These are skipped above (no net) but are hard obstacles for the fan-out
+    # router -- a trace over a 3.4mm choc pole shorts nothing but fails DRC.
+    holes = []
+    for fp in board.GetFootprints():
+        for pad in fp.Pads():
+            if pad.GetAttribute() == pcbnew.PAD_ATTRIB_NPTH:
+                pos = pad.GetPosition()
+                holes.append({
+                    "x": pos.x / NM_PER_MM,
+                    "y": pos.y / NM_PER_MM,
+                    "d": pad.GetDrillSize().x / NM_PER_MM,
+                })
+
+    # Edge.Cuts geometry, arcs sampled to short chords, for the router's keep-out
+    # band along the board outline.
+    edge = []
+    for d in board.GetDrawings():
+        if d.GetLayerName() != "Edge.Cuts":
+            continue
+        if d.GetShape() == pcbnew.SHAPE_T_ARC:
+            cx = d.GetCenter().x / NM_PER_MM
+            cy = d.GetCenter().y / NM_PER_MM
+            r = d.GetRadius() / NM_PER_MM
+            import math
+            a0 = math.atan2(d.GetStart().y / NM_PER_MM - cy,
+                            d.GetStart().x / NM_PER_MM - cx)
+            sweep = d.GetArcAngle().AsDegrees() * math.pi / 180.0
+            steps = max(2, int(abs(sweep) / 0.2))
+            pts = [(cx + r * math.cos(a0 + sweep * k / steps),
+                    cy + r * math.sin(a0 + sweep * k / steps))
+                   for k in range(steps + 1)]
+            edge += list(zip(pts, pts[1:]))
+        else:
+            edge.append(((d.GetStart().x / NM_PER_MM, d.GetStart().y / NM_PER_MM),
+                         (d.GetEnd().x / NM_PER_MM, d.GetEnd().y / NM_PER_MM)))
 
     bbox = board.GetBoardEdgesBoundingBox()
     data = {
@@ -97,6 +138,8 @@ def extract(in_path: str, out_pcb: str, out_json: str) -> dict:
             "h": bbox.GetHeight() / NM_PER_MM,
         },
         "pads": [asdict(p) for p in pads],
+        "holes": holes,
+        "edge": edge,
     }
     with open(out_json, "w") as fh:
         json.dump(data, fh, indent=1)

@@ -32,6 +32,8 @@ class Pad:
     fp_x: float
     fp_y: float
     fp_rot: float
+    sx: float = 0.0
+    sy: float = 0.0
 
     @property
     def xy(self) -> tuple[float, float]:
@@ -56,6 +58,8 @@ class Board:
     nets: dict[str, Net]
     normalised_pcb: str
     bbox: dict
+    holes: list[dict] = field(default_factory=list)   # no-net drills: {x,y,d}
+    edge: list = field(default_factory=list)          # Edge.Cuts chords: ((x,y),(x,y))
 
     @classmethod
     def from_json(cls, path: str) -> "Board":
@@ -72,4 +76,6 @@ class Board:
             nets=nets,
             normalised_pcb=data["normalised_pcb"],
             bbox=data["board_bbox_mm"],
+            holes=data.get("holes", []),
+            edge=[tuple(map(tuple, seg)) for seg in data.get("edge", [])],
         )

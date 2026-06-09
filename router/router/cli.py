@@ -21,7 +21,7 @@ import subprocess
 import sys
 import tempfile
 
-from . import kwrite
+from . import fanout, kwrite
 from .classify import classify, nets_of
 from .extract import extract
 from .geometry import (bezier_transition, catmull_rom, order_along_axis,
@@ -360,6 +360,22 @@ def route_row_fanout(board: Board, verbose: bool = False) -> list[str]:
     return elements
 
 
+def mcu_fanout_specs(board: Board):
+    """Build the grid router's work list: one (name, net_code, start, goal, layer)
+    per matrix net, from its MCU GPIO pad to the nearest pad of its own spine."""
+    specs = []
+    for klass, fps in ((NetClass.COLUMN, SWITCH_FOOTPRINTS),
+                       (NetClass.ROW, DIODE_FOOTPRINTS)):
+        for net in nets_of(board, klass):
+            mp = _mcu_pad(net)
+            spine = [p for p in net.pads if p.footprint in fps]
+            if mp is None or not spine:
+                continue
+            tgt = min(spine, key=lambda p: math.hypot(p.x - mp.x, p.y - mp.y))
+            specs.append((net.name, net.code, mp.xy, tgt.xy, tgt.layer))
+    return specs
+
+
 def render_checkpoint(pcb_path: str, png_path: str) -> None:
     """Export copper+edge layers to a trimmed PNG for visual validation."""
     with tempfile.TemporaryDirectory() as td:
@@ -415,11 +431,13 @@ def main(argv: list[str] | None = None) -> int:
         elements += route_matrix_links(board, verbose=args.verbose)
         if args.mcu_fanout:
             if args.verbose:
-                print("column fan-out:")
-            elements += route_column_fanout(board, verbose=args.verbose)
-            if args.verbose:
-                print("row fan-out:")
-            elements += route_row_fanout(board, verbose=args.verbose)
+                print("MCU fan-out (grid A*):")
+            specs = mcu_fanout_specs(board)
+            fan, unrouted = fanout.route(board, elements, specs,
+                                         verbose=args.verbose)
+            elements += fan
+            if unrouted:
+                print(f"fan-out: {len(unrouted)} net(s) unrouted: {unrouted}")
         print(f"routed {len(elements)} matrix elements")
 
         if args.dry_run:
