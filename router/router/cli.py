@@ -315,6 +315,51 @@ def route_column_fanout(board: Board, verbose: bool = False) -> list[str]:
     return elements
 
 
+def route_row_fanout(board: Board, verbose: bool = False) -> list[str]:
+    """Fan the row nets out to the MCU GPIO pads. Rows and the MCU pads are both on
+    F.Cu, so each is a single same-layer trace -- no via.
+
+    The MCU pads sit in two stacks. The near stack (same side as the matrix) escapes
+    horizontally clear of the pad column, rises/drops to the row's height, then runs
+    in to the open (nearest) diode end. The far stack is boxed behind the MCU body,
+    so it escapes to the board's east margin and runs down it to the row height --
+    a longer detour that still avoids the body."""
+    rows = []
+    for net in nets_of(board, NetClass.ROW):
+        mp = _mcu_pad(net)
+        diodes = [p for p in net.pads if p.footprint in DIODE_FOOTPRINTS]
+        if mp is None or not diodes:
+            continue
+        attach = min(diodes, key=lambda p: math.hypot(p.x - mp.x, p.y - mp.y))
+        rows.append((net, mp, attach))
+    if not rows:
+        return []
+    matrix_x = sorted(a.x for _, _, a in rows)[len(rows) // 2]
+    stack_xs = sorted({round(mp.x, 1) for _, mp, _ in rows})
+    near_x = min(stack_xs, key=lambda sx: abs(sx - matrix_x))
+    # Only the near stack (same side as the matrix) has a clean exit. The far stack
+    # is boxed behind the MCU body, and its east-margin detour runs straight into
+    # the power switch -- that needs the MCU-region router (step 11 part 2), so we
+    # skip it here rather than emit a colliding trace.
+    near = [(net, mp, a) for net, mp, a in rows if round(mp.x, 1) == near_x]
+    # stagger the escape so the risers don't collide: the row reaching farthest
+    # turns nearest the pad column, the next one turns farther out, etc.
+    near.sort(key=lambda r: -abs(r[2].x - r[1].x))
+    elements: list[str] = []
+    for k, (net, mp, attach) in enumerate(near):
+        toward = 1.0 if attach.x > mp.x else -1.0          # matrix direction
+        turn_x = mp.x + toward * (FANOUT_ESCAPE_NEAR + k * FANOUT_ESCAPE_STEP)
+        path = [mp.xy, (turn_x, mp.y), (turn_x, attach.y), attach.xy]
+        elements += kwrite.polyline(path, SIGNAL_WIDTH, "F.Cu", net.code)
+        if verbose:
+            print(f"  {net.name}: MCU pad (near) -> {attach.ref} "
+                  f"({attach.x:.1f},{attach.y:.1f})")
+    skipped = [net.name for net, mp, _ in rows if round(mp.x, 1) != near_x]
+    if verbose and skipped:
+        print(f"  deferred (boxed far stack, need MCU-region router): {skipped}")
+    return elements
+
+
 def render_checkpoint(pcb_path: str, png_path: str) -> None:
     """Export copper+edge layers to a trimmed PNG for visual validation."""
     with tempfile.TemporaryDirectory() as td:
@@ -372,6 +417,9 @@ def main(argv: list[str] | None = None) -> int:
             if args.verbose:
                 print("column fan-out:")
             elements += route_column_fanout(board, verbose=args.verbose)
+            if args.verbose:
+                print("row fan-out:")
+            elements += route_row_fanout(board, verbose=args.verbose)
         print(f"routed {len(elements)} matrix elements")
 
         if args.dry_run:
