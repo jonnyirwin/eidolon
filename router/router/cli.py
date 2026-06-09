@@ -194,6 +194,13 @@ def route_matrix_links(board: Board, verbose: bool = False) -> list[str]:
         # via there in open space, and run the long west leg on F.Cu into the
         # diode pad -- leaving only a short B.Cu stub that conflicts with nothing.
         off = rotate((0.0, MATRIX_DETOUR), switch_pad.fp_rot)
+        # The south drop has a small horizontal lean from fp_rot. On the mirrored
+        # half fp_rot flips sign, so that lean points toward the *outer* board edge
+        # -- and the pinky switch pad already sits on that edge, pushing the via
+        # over it. The diode is interior on both halves, so steer the lean toward
+        # the diode: keeps the left half (lean already diode-ward) untouched.
+        if (off[0] > 0) != (diode_pad.x > switch_pad.x):
+            off = (-off[0], off[1])
         waypoint = (switch_pad.x + off[0], switch_pad.y + off[1])
         elements.append(kwrite.via(waypoint, VIA_SIZE, VIA_DRILL, net.code))
         elements += kwrite.polyline([switch_pad.xy, waypoint],
