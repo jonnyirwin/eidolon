@@ -29,6 +29,16 @@ power, both halves. `kicad-cli pcb drc --severity-error` = **0 violations,
 then `kicad-cli pcb drc --severity-error …`. Renders + DRC both clean as of
 the final commit this session.
 
+## Case matched to the boards (this session, after routing)
+- board_left now carries the SAME two reliefs as board_right (0.7mm pinky,
+  0.3mm top edge) -> the halves are EXACT mirror shapes (verified 0.000mm
+  outline deviation; every fp origin mirrors at x_l + x_r = 170, same y).
+  Both halves re-routed after the rebuild: still 0 DRC / 0 unconnected.
+- case/phantom_case.scad now builds BOTH halves (`-D right=true` mirrors);
+  outline points/corner fillet/switch list taken VERBATIM from the routed
+  ergogen board (the old hand-traced switch list deviated up to 0.154mm).
+  Case bolts == PCB mounting holes (verified). All 4 STLs compile clean.
+
 ## Possible follow-ups (none blocking)
 - GND pour (brief step 14) — optional layering on top of clean routed rails.
 - Step 16 YAML config: promote river waypoint constants.

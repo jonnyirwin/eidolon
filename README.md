@@ -112,36 +112,25 @@ pours copper. After `node build.js`, open the board in KiCad and:
 
 ## Case (Totem-style, OpenSCAD)
 
-`case/case_left.scad` is a parametric case that **imports the Ergogen outline
-DXFs** (so it tracks the board). It follows the **Phantom outline/key layout**
-but takes its **proportions from the real Totem BLE STEP** (rim ≈ 14 mm tall,
-sunken switchplate, ~2.4 mm walls — measured in FreeCAD):
-
-- **Top body**: a chamfered shell with a **recessed switchplate** (14 mm Choc
-  holes) set ~`recess` below a **raised rim**, so the key cluster is a sunken
-  recess and the keycaps sit nearly flush with the rim (the Totem look). The
-  controller wing is closed on top; USB cutout at the top edge, power-switch
-  slot on the right.
-- **Bottom**: a **deep tray** (Totem BLE-style, ~5.5 mm) — floor + perimeter
-  walls with an open cavity for the **LiPo battery**; the hotswap sockets hang in
-  the cavity. Chamfered bottom edge.
-- **Join**: four **M2 screw bosses** (posts with pilot holes in the top; clearance
-  + head counterbores on the tray's outer bottom).
-
-Three Ergogen outlines feed it: `plate_left` (board − 14 mm switch holes),
-`socketpockets_left` (socket cutouts), `keyfield_left` (merged key-cluster
-recess). Key params at the top of the .scad: `recess`, `wall`, `chamf`,
-`plate_gap`, `rim_t`.
+`case/phantom_case.scad` is the top case for **both halves**: the two PCBs are
+exact mirror shapes (verified — every footprint origin mirrors at
+`x_left + x_right = 170` with identical y, outline reflection deviation
+0.000 mm; both boards carry the same two routing reliefs), so the right case
+is the left case mirrored (`-D right=true`). The outline, switch positions,
+corner fillet and bolt positions are taken **verbatim from the routed ergogen
+board** (`output/pcbs/phantom_left.kicad_pcb`, frame offset +80, +58.97); the
+four case bolts are the PCB mounting holes.
 
 ```sh
-node build.js                                              # regenerate DXFs first
-openscad -o case_preview.png case/case_left.scad           # exploded preview
-openscad -D 'part="bottom"' -o bottom_left.stl case/case_left.scad
-openscad -D 'part="top"'    -o top_left.stl    case/case_left.scad
+openscad -o phantom_case_left.stl                 case/phantom_case.scad
+openscad -D right=true -o phantom_case_right.stl  case/phantom_case.scad
+openscad -o phantom_case_bottom_left.stl                 case/phantom_case_bottom.scad
+openscad -D right=true -o phantom_case_bottom_right.stl  case/phantom_case_bottom.scad
 ```
 
-Key params (top of the .scad): `wall`, `floor_t`, `pcb_t`, `gap`, `plate_t`,
-`sock_d`. Total height ≈ `floor_t + pcb_t + gap + plate_t` ≈ 8 mm.
+Top-case features: sunken keycap recess field, stepped 13.8 mm Choc plate
+holes, XIAO pocket + acrylic cover rebate + USB-C cutout, battery pocket,
+power-switch wall slot, M2 bolt pockets.
 
 ### Bottom shell
 

@@ -1,12 +1,25 @@
-// Phantom case — LEFT half.
-// Outline built directly from the original PCB Edge.Cuts of lephantom.kicad_pcb
-// (6 lines + 5 arcs, exact mm coordinates). The case footprint is the PCB
-// outline grown outward by (gap + wall) so the PCB drops inside the walls:
+// Phantom case — BOTH halves (left geometry; right = mirrored build).
+// Outline from the PCB Edge.Cuts of lephantom.kicad_pcb (6 lines + 5 arcs,
+// exact mm coordinates) plus the two routing reliefs now carried by BOTH
+// ergogen PCBs (P1/P2 top edge -0.3mm, P10/P11 pinky edge -0.7mm), so the two
+// boards are exact mirror images and one case design fits both. The case
+// footprint is the PCB outline grown outward by (gap + wall) so the PCB drops
+// inside the walls:
 //   gap  = 0.15mm clearance between PCB edge and inner wall
 //   wall = 2.0mm  case wall thickness
-// then extruded to 16mm. This pass produces the solid outer shape only.
+// then extruded. This pass produces the solid outer shape only.
 //
-//   openscad -o phantom_case.stl case/phantom_case.scad
+//   openscad -o phantom_case_left.stl  case/phantom_case.scad
+//   openscad -D right=true -o phantom_case_right.stl case/phantom_case.scad
+//
+// Right-half fit (verified against the routed ergogen boards): every
+// footprint origin mirrors exactly (x_left + x_right = 170, same y), and the
+// four case bolts ARE the PCB mounting holes. The XIAO keeps its orientation
+// under the PCB mirror, but its position mirrors and the pocket/USB cutout
+// are symmetric about the pocket axis, so the mirrored case still fits; the
+// power switch flips orientation but its body centre and actuator height are
+// unchanged, so the mirrored wall slot lines up.
+right = false;   // build the right-half case (mirror of the left)
 
 gap    = 0.15;   // PCB-to-inner-wall clearance (per side)
 wall   = 2.0;    // case wall thickness
@@ -109,8 +122,8 @@ arc_n  = 24;     // points sampled per arc corner
 $fn = 64;
 
 // ---- Edge.Cuts vertices (exact KiCad coords, mm, y-down) ----
-P1  = [ 39.624000, 17.018000];
-P2  = [105.918000, 15.240000];
+P1  = [ 39.624000, 16.718000];  // -0.3mm top-edge relief (routing lanes; matches both PCBs)
+P2  = [105.918000, 14.940000];  // -0.3mm top-edge relief (paired with P1)
 P3  = [112.016555, 16.811266];
 P4  = [143.816302, 31.614407];
 P5  = [144.187844, 32.512000];
@@ -118,8 +131,8 @@ P6  = [144.272000, 66.802000];
 P7  = [130.914271, 95.075525];
 P8  = [123.190000, 98.806000];
 P9  = [ 43.688000, 89.154000];
-P10 = [ 35.014644, 79.908818];
-P11 = [ 30.897623, 27.391512];
+P10 = [ 34.314644, 79.908818];  // -0.7mm pinky-edge relief (S12/S13 pad 2 under mirror; matches both PCBs)
+P11 = [ 30.197623, 27.391512];  // -0.7mm pinky-edge relief (paired with P10)
 
 // arc midpoints (the stored "mid" of each gr_arc)
 M_a = [ 33.354254, 20.600927];  // P1  <-> P11  (upper-left corner)
@@ -149,42 +162,20 @@ function arc_pts(p0, pm, p1, n=arc_n) =
     [ for (i=[1:n]) let(t=i/n, a=a0+sweep*t) c + r*[cos(a), sin(a)] ];
 
 // Local enlargement of the right edge to house the XIAO pocket: push the right
-// (vertical) edge out by pcb_pad. AND smooth the upper-right kink — in the source
-// PCB the diagonal (P3->P4) meets the corner arc (P3,M_e,P2) at ~7°, not tangent.
-// We keep the corner arc as-is but shift the diagonal parallel-outward until
-// it's TANGENT to that arc, replacing P3 with the tangent point T. The new
-// top-right corner Pc = intersection of the (pushed) vertical edge with the
-// (tangent-shifted) diagonal. Both edges stay on true PCB lines + the corner
-// is now smooth. P7 (bottom) stays, so the lower-right line just tilts out.
-function line_intersect(a, b, c, d) =
-    let(r = b - a, s = d - c, rxs = r[0]*s[1] - r[1]*s[0])
-    a + r * (((c[0]-a[0])*s[1] - (c[1]-a[1])*s[0]) / rxs);
-function _vlen(v)   = sqrt(v[0]*v[0] + v[1]*v[1]);
-function _vunit(v)  = v / _vlen(v);
-function _bisect(a, b) = _vunit(_vunit(a) + _vunit(b));
+// (vertical) edge out by pcb_pad (the ergogen boards carry the same +pcb_pad
+// edge). The upper-right corner — fillet tangent points T / P2t, arc mid M_t,
+// and the vertical-edge corner Pc — is taken VERBATIM from the as-built
+// ergogen board (output/pcbs/phantom_left.kicad_pcb Edge.Cuts, frame offset
+// +80, +58.97). It was originally derived parametrically here; after the
+// -0.3mm top-edge relief the board's stored arc is the source of truth, and
+// re-deriving tangency would cut up to 0.15mm inside the PCB edge.
 pcb_pad = 3.0;
 P5e = P5 + [pcb_pad, 0];
 P6e = P6 + [pcb_pad, 0];
-// Upper-right corner: replace the source PCB's near-arc (kinks ~7° at the
-// diagonal, ~1.56° at the top edge) with a PROPER FILLET of the same radius,
-// tangent to both the (shifted) diagonal AND the top edge. Compute the new
-// centre by intersecting the two lines offset inward by r_e, then drop
-// perpendiculars to get the tangent points T (replaces P3) and P2t (replaces
-// P2). M_t is a point on the new arc for arc_pts reconstruction.
-C_ref = _ctr(P3, M_e, P2);                                    // original centre (sign reference)
-r_e   = _vlen(P3 - C_ref);                                    // original PCB radius (kept)
-u_d   = _vunit(P4 - P3);                                      // diagonal direction
-u_t   = _vunit(P2 - P1);                                      // top-edge direction
-n_d   = ([-u_d[1], u_d[0]] * (C_ref - P3) > 0)
-            ? [-u_d[1],  u_d[0]] : [ u_d[1], -u_d[0]];        // inward normal (diag)
-n_t   = ([-u_t[1], u_t[0]] * (C_ref - P2) > 0)
-            ? [-u_t[1],  u_t[0]] : [ u_t[1], -u_t[0]];        // inward normal (top)
-C_e   = line_intersect(P3 + r_e*n_d, P3 + r_e*n_d + u_d,
-                       P1 + r_e*n_t, P1 + r_e*n_t + u_t);     // fillet centre
-T     = P3 + u_d * ((C_e - P3) * u_d);                        // tangent point on diagonal
-P2t   = P1 + u_t * ((C_e - P1) * u_t);                        // tangent point on top edge
-M_t   = C_e + r_e * _bisect(T - C_e, P2t - C_e);              // mid of the new arc
-Pc    = line_intersect(T, T + u_d, P5e, P6e);                 // vertical edge ∩ diag
+T   = [110.723000, 16.209000];  // diagonal-side tangent point (board exact)
+M_t = [108.435000, 15.451000];  // fillet arc mid                (board exact)
+P2t = [106.034000, 14.937000];  // top-edge tangent point        (board exact)
+Pc  = [147.189000, 33.098000];  // vertical edge ∩ diagonal      (board exact)
 
 // ---- assemble the closed perimeter, in connection order ----
 outline = concat(
@@ -201,14 +192,28 @@ outline = concat(
     arc_pts(T,   M_t, P2t)      // T  -> P2t arc (fillet tangent at BOTH ends)
 );
 
-// ---- Choc switch positions, from lephantom.kicad_pcb (KiCad coords) ----
-// [x, y, rotation_deg] — the 15 SW_PG1350 footprints of the left half.
+// ---- Choc switch positions, from the routed ergogen board (KiCad coords) ----
+// [x, y, rotation_deg] — the 15 PG1350 footprint origins of phantom_left,
+// extracted from output/pcbs/phantom_left.kicad_pcb (frame offset +80, +58.97
+// from the ergogen origin). These ARE the as-built positions; the previous
+// list was traced from the original lephantom.kicad_pcb and deviated up to
+// 0.154mm from the ergogen recreation.
 switches = [
-    [ 80.000, 24.980,  0], [ 59.917, 28.163,  3], [ 98.000, 28.540,  0],
-    [116.000, 37.270,  0], [ 41.507, 41.509,  5], [ 80.000, 41.970,  0],
-    [ 60.806, 45.140,  3], [ 98.000, 45.540,  0], [116.000, 54.270,  0],
-    [ 42.989, 58.444,  5], [ 80.000, 58.970,  0], [ 61.696, 62.122,  3],
-    [ 98.000, 62.545,  0], [104.154, 83.063, -8], [121.957, 85.626, -8],
+    [ 80.000000, 24.970000,  0],   // S3
+    [ 59.920577, 28.166596,  3],   // S11
+    [ 98.000000, 28.570000,  0],   // S6
+    [116.000000, 37.270000,  0],   // S8
+    [ 41.518352, 41.504690,  5],   // S13
+    [ 80.000000, 41.970000,  0],   // S2
+    [ 60.810289, 45.143298,  3],   // S10
+    [ 98.000000, 45.570000,  0],   // S5
+    [116.000000, 54.270000,  0],   // S7
+    [ 43.000000, 58.440000,  5],   // S12
+    [ 80.000000, 58.970000,  0],   // S1
+    [ 61.700000, 62.120000,  3],   // S9
+    [ 98.000000, 62.570000,  0],   // S4
+    [104.000000, 83.070000, -8],   // S14
+    [121.824825, 85.575116, -8],   // S15
 ];
 
 // Stepped switch hole: 13.8mm through the upper plate (and up into the recess),
@@ -418,6 +423,8 @@ module top_case()
 
 // SUPPRESS_TOP lets phantom_case_bottom.scad `include` this file for shared
 // geometry (outline, switches, bolts, top_case module) without also rendering
-// the top case here.
-if (is_undef(SUPPRESS_TOP))
-    top_case();
+// the top case here. `right` mirrors the build for the right half.
+if (is_undef(SUPPRESS_TOP)) {
+    if (right) mirror([1, 0, 0]) top_case();
+    else top_case();
+}

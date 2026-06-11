@@ -94,13 +94,20 @@ module bottom_case()
         }
 
 // Preview: render top + bottom together for fit check. EXPLODED > 0 lifts the
-// top by that many mm; 0 = fully assembled.
+// top by that many mm; 0 = fully assembled. `right` (from the included top
+// SCAD, or -D right=true) mirrors the build for the right half:
+//   openscad -D right=true -o phantom_case_bottom_right.stl case/phantom_case_bottom.scad
 PREVIEW  = false;
 EXPLODED = 6;
 
-if (PREVIEW) {
-    bottom_case();
-    translate([0, 0, EXPLODED]) top_case();
-} else {
-    bottom_case();
+module bottom_build() {
+    if (PREVIEW) {
+        bottom_case();
+        translate([0, 0, EXPLODED]) top_case();
+    } else {
+        bottom_case();
+    }
 }
+
+if (right) mirror([1, 0, 0]) bottom_build();
+else bottom_build();

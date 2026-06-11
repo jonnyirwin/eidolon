@@ -158,17 +158,17 @@ outlines:
         - type: arc
           points:
             - { ref: matrix_middle_bottom, shift: [28.435, 43.519] }   # M on new fillet
-            - { ref: matrix_middle_bottom, shift: [26.034, 43.733] }   # P2': tangent point (top edge)
+            - { ref: matrix_middle_bottom, shift: [26.034, 44.033] }   # P2' +0.3mm outward relief: matches board_right so the halves stay exact mirror shapes (one case, printed mirrored)
         - type: line
           points:
-            - { ref: matrix_middle_bottom, shift: [-40.376, 41.952] }
+            - { ref: matrix_middle_bottom, shift: [-40.376, 42.252] }   # +0.3mm outward relief (paired with the point above)
         - type: arc
           points:
             - { ref: matrix_middle_bottom, shift: [-46.646, 38.369] }
-            - { ref: matrix_middle_bottom, shift: [-49.102, 31.578] }
+            - { ref: matrix_middle_bottom, shift: [-49.802, 31.578] }   # +0.7mm outward relief: matches board_right's pinky relief so the halves stay exact mirror shapes
         - type: line
           points:
-            - { ref: matrix_middle_bottom, shift: [-44.985, -20.939] }
+            - { ref: matrix_middle_bottom, shift: [-45.685, -20.939] }   # +0.7mm outward relief (paired with the point above)
         - type: arc
           points:
             - { ref: matrix_middle_bottom, shift: [-42.022, -26.850] }
