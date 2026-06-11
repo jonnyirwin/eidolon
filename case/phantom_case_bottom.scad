@@ -63,12 +63,21 @@ module bottom_body()
 // Hot-swap socket pockets — through-cut the full lip height so a 1.8mm-tall
 // socket fits. The exterior floor seals the cuts from outside; the socket
 // bottom ends ~0.3mm above the floor top (z=0). Rotated per switch.
+// The hotswap sockets do NOT mirror on the right-half PCB (they keep their
+// orientation; verified: right S3 drill at centre +5, pad 2 at centre +8.275,
+// same as left). The Z-shaped pocket is chiral, so for the right build the
+// polygon is mirrored LOCALLY — the global mirror([1,0,0]) then cancels it,
+// leaving the pocket in the same chirality as the physical socket.
 module socket_pockets()
     for (s = switches)
         translate([s[0], s[1], 0])
             rotate([0, 0, -s[2]])
                 linear_extrude(lip_h + 0.01)
-                    offset(r = socket_clr) polygon(socket_outline);
+                    if (right)
+                        mirror([1, 0])
+                            offset(r = socket_clr) polygon(socket_outline);
+                    else
+                        offset(r = socket_clr) polygon(socket_outline);
 
 // Hex nut pockets in the bottom face (z = -floor_t), m2_nut_h deep upward.
 module nut_pockets()
