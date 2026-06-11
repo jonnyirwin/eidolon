@@ -52,11 +52,25 @@ def polyline(points: list[Point], width: float, layer: str, net_code: int) -> li
     return out
 
 
-def curve(points: list[Point], width: float, layer: str, net_code: int) -> list[str]:
+def curve(points: list[Point], width: float, layer: str, net_code: int,
+          tol: float = 0.05) -> list[str]:
     """Emit a sample polyline as native ``(arc ...)`` + ``(segment ...)`` tracks,
-    fitting circular arcs to curved runs (per the brief's arc-at-turns rule)."""
+    fitting circular arcs to curved runs (per the brief's arc-at-turns rule).
+    ``tol`` is the arc-fit tolerance; tight corridors (river lanes at 0.55 mm
+    pitch) need 0.02 so the fit cannot eat the clearance margin.
+
+    Points are densified first: sparse polylines (a straight lane stretch is
+    just two vertices) leave the arc fitter with no interior samples to refute
+    a bowed circle through far-apart endpoints."""
     out = []
-    for prim in fit_arcs(points):
+    dense: list[Point] = []
+    for a, b in zip(points, points[1:]):
+        n = max(1, int(((b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2) ** 0.5 / 0.5))
+        dense += [(a[0] + (b[0] - a[0]) * k / n,
+                   a[1] + (b[1] - a[1]) * k / n) for k in range(n)]
+    if points:
+        dense.append(points[-1])
+    for prim in fit_arcs(dense, tol=tol):
         if prim[0] == "arc":
             _, a, m, b = prim
             if a != b:

@@ -201,10 +201,10 @@ outlines:
         - type: arc
           points:
             - { ref: mirror_matrix_middle_bottom, shift: [28.435, 43.519] }   # M
-            - { ref: mirror_matrix_middle_bottom, shift: [26.034, 43.733] }   # P2'
+            - { ref: mirror_matrix_middle_bottom, shift: [26.034, 44.033] }   # P2' +0.3mm outward relief: switch footprints keep socket orientation under mirror, so the apex key's hotswap drill sits 0.13mm too close to this edge for the two routing lanes that pass it
         - type: line
           points:
-            - { ref: mirror_matrix_middle_bottom, shift: [-40.376, 41.952] }
+            - { ref: mirror_matrix_middle_bottom, shift: [-40.376, 42.252] }   # +0.3mm outward relief (paired with the point above)
         - type: arc
           points:
             - { ref: mirror_matrix_middle_bottom, shift: [-46.646, 38.369] }

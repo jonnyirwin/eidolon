@@ -34,6 +34,12 @@ class Pad:
     fp_rot: float
     sx: float = 0.0
     sy: float = 0.0
+    cx: float = 0.0    # copper centre (offset pads); defaults to x/y
+    cy: float = 0.0
+
+    def __post_init__(self):
+        if self.cx == 0.0 and self.cy == 0.0:
+            self.cx, self.cy = self.x, self.y
 
     @property
     def xy(self) -> tuple[float, float]:
@@ -59,6 +65,7 @@ class Board:
     normalised_pcb: str
     bbox: dict
     holes: list[dict] = field(default_factory=list)   # no-net drills: {x,y,d}
+    keepouts: list[dict] = field(default_factory=list)  # no-net PTH pads
     edge: list = field(default_factory=list)          # Edge.Cuts chords: ((x,y),(x,y))
 
     @classmethod
@@ -77,5 +84,6 @@ class Board:
             normalised_pcb=data["normalised_pcb"],
             bbox=data["board_bbox_mm"],
             holes=data.get("holes", []),
+            keepouts=data.get("keepouts", []),
             edge=[tuple(map(tuple, seg)) for seg in data.get("edge", [])],
         )

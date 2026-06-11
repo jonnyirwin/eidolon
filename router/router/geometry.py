@@ -132,14 +132,38 @@ def _point_seg_dist(p: Point, a: Point, b: Point) -> float:
     return math.hypot(px - (ax + t * dx), py - (ay + t * dy))
 
 
+MIN_ARC_SAGITTA = 0.12  # arcs flatter than this are emitted as segments: the
+                        # board file rounds coordinates to 4 decimals, and a
+                        # huge-radius arc through three near-collinear rounded
+                        # points reconstructs as a *different* circle that can
+                        # bulge millimetres off the sampled path
+
+
+def _arc_mid_index(pts: list[Point], i: int, j: int) -> int:
+    """Sample index nearest the arc-length midpoint of ``pts[i..j]`` -- a
+    numerically stable ``mid`` for the KiCad arc encoding (the index midpoint
+    can sit next to one endpoint when sampling is uneven)."""
+    total = 0.0
+    cum = [0.0]
+    for k in range(i, j):
+        total += math.dist(pts[k], pts[k + 1])
+        cum.append(total)
+    half = total / 2.0
+    best = min(range(1, len(cum) - 1), key=lambda k: abs(cum[k] - half),
+               default=1)
+    return i + best
+
+
 def fit_arcs(pts: list[Point], tol: float = 0.05):
     """Greedily collapse a dense sample polyline into native circular arcs and
     straight segments. At each step it grows *both* a straight run (points within
     ``tol`` mm of the chord) and a circular arc (points within ``tol`` of the
     circle through start/mid/end), then keeps whichever reaches further -- so a
     dead-straight column becomes one segment and a curve becomes a few arcs.
-    Endpoints are preserved exactly, so a fitted spine still begins and ends on
-    its pads. Yields ``("arc", start, mid, end)`` or ``("seg", start, end)``."""
+    Near-straight arcs (sagitta < MIN_ARC_SAGITTA) are rejected in favour of
+    segments. Endpoints are preserved exactly, so a fitted spine still begins
+    and ends on its pads. Yields ``("arc", start, mid, end)`` or
+    ``("seg", start, end)``."""
     out = []
     n = len(pts)
     i = 0
@@ -154,7 +178,7 @@ def fit_arcs(pts: list[Point], tol: float = 0.05):
         arc_choice, arc_j = None, i + 1
         j = i + 2
         while j < n:
-            mid = pts[(i + j) // 2]
+            mid = pts[_arc_mid_index(pts, i, j)]
             circ = circle_from_3(pts[i], mid, pts[j])
             if circ is None:
                 break
@@ -162,7 +186,10 @@ def fit_arcs(pts: list[Point], tol: float = 0.05):
             if any(abs(math.hypot(p[0] - cx, p[1] - cy) - r) > tol
                    for p in pts[i + 1:j]):
                 break
-            arc_choice, arc_j = ("arc", pts[i], mid, pts[j]), j
+            sag = max(_point_seg_dist(p, pts[i], pts[j])
+                      for p in pts[i + 1:j])
+            arc_choice, arc_j = (("arc", pts[i], mid, pts[j]), j) \
+                if sag >= MIN_ARC_SAGITTA else (arc_choice, arc_j)
             j += 1
         if arc_choice is not None and arc_j > seg_j:
             out.append(arc_choice)

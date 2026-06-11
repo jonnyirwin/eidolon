@@ -21,7 +21,7 @@ import subprocess
 import sys
 import tempfile
 
-from . import fanout, kwrite
+from . import kwrite, river
 from .classify import classify, nets_of
 from .extract import extract
 from .geometry import (bezier_transition, catmull_rom, order_along_axis,
@@ -40,22 +40,6 @@ MATRIX_DETOUR = 6.0  # mm, south drop (switch local +y) so the matrix-link B.Cu
 SWITCH_FOOTPRINTS = {"PG1350"}        # columns thread these switch pads (B.Cu)
 DIODE_FOOTPRINTS = {"diode_sod123"}   # rows thread these diode pads    (F.Cu)
 MCU_FOOTPRINTS = {"xiao_ble"}         # GPIO fan-out endpoints
-
-# MCU fan-out (step 11). The MCU GPIO pads are stacked F.Cu; the columns they feed
-# spread across the board on B.Cu, the rows on F.Cu. Columns can't cross the matrix
-# body on either layer (both occupied by spines), so they run as parallel "river"
-# lanes through the clear north margin -- the lane order matches the stacked-pad
-# order, so they never cross -- then drop a via to B.Cu over each column's own x.
-FANOUT_BASE_GAP = 2.0      # innermost lane's vertical gap north of the top-key line
-                           # (clears the 3.4mm choc body NPTHs sitting at pad height)
-FANOUT_LANE_PITCH = 0.5    # centre spacing between lanes (>0.45 = 0.25 trace + 0.2
-                           # copper clearance)
-FANOUT_TURN_GAP = 8.0      # how far past the MCU (toward the matrix) the diagonal
-                           # breakout bundles the stacked pads into the lanes
-FANOUT_ESCAPE_NEAR = 1.5   # first escape step west of the MCU pad column
-FANOUT_ESCAPE_STEP = 0.6   # extra escape per lane so risers clear the pad stack
-FANOUT_VIA_DROP = 0.5      # peel south of the trunk before the via, so the via sits
-                           # clear of the outer lanes still passing overhead
 
 # The diode's two pads sit on the same row line (matrix pad1 left, row pad2
 # right). Routing the row straight through pad2 also runs it over the adjacent
@@ -148,6 +132,7 @@ def _thumb_transition(main_spine, thumb_pads, main_rot, layer, net_code):
 def route_spine(board: Board, klass: NetClass, footprints: set[str],
                 thumb_refs: frozenset[str] = frozenset(),
                 offset: float = 0.0,
+                spines: dict | None = None,
                 verbose: bool = False) -> list[str]:
     """Thread one smooth spine per net of ``klass`` through its ``footprints``
     pads. Columns and rows are the same problem on different layers; the routing
@@ -169,10 +154,12 @@ def route_spine(board: Board, klass: NetClass, footprints: set[str],
         layer = collections.Counter(p.layer for p in main_pads).most_common(1)[0][0]
         pad_pts = [p.xy for p in main_pads]
         if offset:
-            _, spine, segs = _offset_spine(pad_pts, layer, net.code, offset)
+            ordered, spine, segs = _offset_spine(pad_pts, layer, net.code, offset)
         else:
-            _, spine, segs = _spine_through(pad_pts, layer, net.code)
+            ordered, spine, segs = _spine_through(pad_pts, layer, net.code)
         elements += segs
+        if spines is not None:
+            spines[net.name] = (ordered, spine)
         thumb_note = ""
         if thumb_pads:
             main_rot = collections.Counter(
@@ -238,128 +225,6 @@ def _mcu_pad(net):
     return None
 
 
-def _contour_y(contour, x):
-    """Linear interpolation of the top-key contour ``[(x,y),...]`` (sorted by x) at
-    ``x``, held constant (clamped) outside the key span."""
-    if x <= contour[0][0]:
-        return contour[0][1]
-    if x >= contour[-1][0]:
-        return contour[-1][1]
-    for (x0, y0), (x1, y1) in zip(contour, contour[1:]):
-        if x0 <= x <= x1:
-            return y0 + (y1 - y0) * (x - x0) / (x1 - x0)
-    return contour[-1][1]
-
-
-def route_column_fanout(board: Board, verbose: bool = False) -> list[str]:
-    """River-delta fan-out for the column nets. Each column's MCU GPIO pad (F.Cu)
-    breaks out diagonally into a lane that follows the top-key contour (hugging just
-    inside the rounded north edge, not a flat band), runs to the column's x, then
-    drops a via to B.Cu and joins the column's north (top) switch pad.
-
-    The lane offset converges: it starts outermost at the MCU (matching the stacked
-    pad order, so the breakout is planar -- no crossings) and steps inward by one
-    pitch each time an inner lane peels off, so the far columns ride low enough to
-    clear the edge where the contour pinches against the rounded north corner. The
-    lanes are straight chords between key samples (no arc fitting, which would bow
-    the sparse samples into neighbours).
-    """
-    cols = []
-    for net in nets_of(board, NetClass.COLUMN):
-        mp = _mcu_pad(net)
-        sw = [p for p in net.pads if p.footprint in SWITCH_FOOTPRINTS]
-        if mp is None or not sw:
-            continue
-        cols.append((net, mp, min(sw, key=lambda p: p.y)))  # top = north open end
-    if not cols:
-        return []
-    cols.sort(key=lambda c: c[1].y)            # MCU pads north -> south
-    n = len(cols)
-    contour = sorted((top.x, top.y) for _, _, top in cols)
-    mcu_x = cols[0][1].x
-    dir_x = 1.0 if cols[0][2].x > mcu_x else -1.0   # toward the matrix
-    bundle_x = mcu_x + dir_x * FANOUT_TURN_GAP
-    peel_dist = lambda x: abs(x - mcu_x)            # farther = peels later
-    key_xs = [cx for cx, _ in contour]
-    elements: list[str] = []
-    for i, (net, mp, top) in enumerate(cols):
-        # the lane keeps a fixed pitch from its neighbours but the whole bundle steps
-        # inward by one pitch each time an inner lane peels: offset = base + pitch *
-        # (lanes still overhead that peel before this one). So lanes stay parallel
-        # (no pinching) yet the far columns ride low enough to clear the pinched
-        # edge, and at the breakout every lane sits at its full outer offset (planar,
-        # no crossings). Sampled only at key x's -> straight chords, no arc bowing.
-        my_d = peel_dist(top.x)
-        xs = [bundle_x] + [kx for kx in key_xs if min(bundle_x, top.x) < kx
-                           < max(bundle_x, top.x)] + [top.x]
-        xs.sort(key=peel_dist)                      # bundle (near) -> peel (far)
-        lane = []
-        for x in xs:
-            rank = sum(1 for _, _, t in cols
-                       if peel_dist(x) <= peel_dist(t.x) < my_d)
-            off = FANOUT_BASE_GAP + FANOUT_LANE_PITCH * rank
-            lane.append((x, _contour_y(contour, x) - off))
-        # escape west of the stacked MCU pads (farther for the steeper, southern
-        # pads) before diagonalling up to the lane, so no riser grazes a pad.
-        escape = (mp.x + dir_x * (FANOUT_ESCAPE_NEAR + i * FANOUT_ESCAPE_STEP), mp.y)
-        # peel south off the trunk to a via that clears the outer lanes overhead.
-        via_pt = (top.x, top.y - FANOUT_VIA_DROP)
-        elements += kwrite.polyline([mp.xy, escape] + lane + [via_pt],
-                                    SIGNAL_WIDTH, "F.Cu", net.code)
-        elements.append(kwrite.via(via_pt, VIA_SIZE, VIA_DRILL, net.code))
-        elements += kwrite.polyline([via_pt, top.xy], SIGNAL_WIDTH, "B.Cu",
-                                    net.code)
-        if verbose:
-            print(f"  {net.name}: MCU pad -> escape -> converging lane {i} "
-                  f"-> via@({via_pt[0]:.1f},{via_pt[1]:.1f}) -> {top.ref}")
-    return elements
-
-
-def route_row_fanout(board: Board, verbose: bool = False) -> list[str]:
-    """Fan the row nets out to the MCU GPIO pads. Rows and the MCU pads are both on
-    F.Cu, so each is a single same-layer trace -- no via.
-
-    The MCU pads sit in two stacks. The near stack (same side as the matrix) escapes
-    horizontally clear of the pad column, rises/drops to the row's height, then runs
-    in to the open (nearest) diode end. The far stack is boxed behind the MCU body,
-    so it escapes to the board's east margin and runs down it to the row height --
-    a longer detour that still avoids the body."""
-    rows = []
-    for net in nets_of(board, NetClass.ROW):
-        mp = _mcu_pad(net)
-        diodes = [p for p in net.pads if p.footprint in DIODE_FOOTPRINTS]
-        if mp is None or not diodes:
-            continue
-        attach = min(diodes, key=lambda p: math.hypot(p.x - mp.x, p.y - mp.y))
-        rows.append((net, mp, attach))
-    if not rows:
-        return []
-    matrix_x = sorted(a.x for _, _, a in rows)[len(rows) // 2]
-    stack_xs = sorted({round(mp.x, 1) for _, mp, _ in rows})
-    near_x = min(stack_xs, key=lambda sx: abs(sx - matrix_x))
-    # Only the near stack (same side as the matrix) has a clean exit. The far stack
-    # is boxed behind the MCU body, and its east-margin detour runs straight into
-    # the power switch -- that needs the MCU-region router (step 11 part 2), so we
-    # skip it here rather than emit a colliding trace.
-    near = [(net, mp, a) for net, mp, a in rows if round(mp.x, 1) == near_x]
-    # stagger the escape so the risers don't collide: the row reaching farthest
-    # turns nearest the pad column, the next one turns farther out, etc.
-    near.sort(key=lambda r: -abs(r[2].x - r[1].x))
-    elements: list[str] = []
-    for k, (net, mp, attach) in enumerate(near):
-        toward = 1.0 if attach.x > mp.x else -1.0          # matrix direction
-        turn_x = mp.x + toward * (FANOUT_ESCAPE_NEAR + k * FANOUT_ESCAPE_STEP)
-        path = [mp.xy, (turn_x, mp.y), (turn_x, attach.y), attach.xy]
-        elements += kwrite.polyline(path, SIGNAL_WIDTH, "F.Cu", net.code)
-        if verbose:
-            print(f"  {net.name}: MCU pad (near) -> {attach.ref} "
-                  f"({attach.x:.1f},{attach.y:.1f})")
-    skipped = [net.name for net, mp, _ in rows if round(mp.x, 1) != near_x]
-    if verbose and skipped:
-        print(f"  deferred (boxed far stack, need MCU-region router): {skipped}")
-    return elements
-
-
 def mcu_fanout_specs(board: Board):
     """Build the grid router's work list: one (name, net_code, start, goal, layer)
     per matrix net, from its MCU GPIO pad to the nearest pad of its own spine."""
@@ -378,11 +243,16 @@ def mcu_fanout_specs(board: Board):
 
 def render_checkpoint(pcb_path: str, png_path: str) -> None:
     """Export copper+edge layers to a trimmed PNG for visual validation."""
+    from .extract import shift_into_page
     with tempfile.TemporaryDirectory() as td:
+        # plot a copy shifted to positive coordinates -- the plotter clips
+        # anything off the page, which used to truncate the checkpoint.
+        shifted = os.path.join(td, "shifted.kicad_pcb")
+        shift_into_page(pcb_path, shifted)
         pdf = os.path.join(td, "board.pdf")
         subprocess.run(
             ["kicad-cli", "pcb", "export", "pdf", "--layers",
-             "B.Cu,F.Cu,Edge.Cuts", "-o", pdf, pcb_path],
+             "B.Cu,F.Cu,Edge.Cuts", "-o", pdf, shifted],
             check=True, capture_output=True,
         )
         raw = os.path.join(td, "raw.png")
@@ -401,10 +271,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--verbose", action="store_true")
     ap.add_argument("--dry-run", action="store_true",
                     help="parse, classify and plan but do not write output")
-    ap.add_argument("--mcu-fanout", action="store_true",
-                    help="(WIP, step 11) also fan the columns out to the MCU GPIO "
-                         "pads; connects C0-C4 but not yet DRC-clean through the "
-                         "hole-dense, edge-pinched north corridor")
+    ap.add_argument("--matrix-only", action="store_true",
+                    help="route only the switch matrix (skip the MCU fan-out "
+                         "river and power rails)")
     args = ap.parse_args(argv)
 
     with tempfile.TemporaryDirectory() as td:
@@ -418,27 +287,37 @@ def main(argv: list[str] | None = None) -> int:
             print("net classes:", dict(counts))
 
         thumbs = thumb_switch_refs(board)
+        spines: dict = {}
         if args.verbose:
             print(f"columns (thumb keys: {sorted(thumbs) or 'none'}):")
         elements = route_spine(board, NetClass.COLUMN, SWITCH_FOOTPRINTS,
-                               thumb_refs=thumbs, verbose=args.verbose)
+                               thumb_refs=thumbs, spines=spines,
+                               verbose=args.verbose)
         if args.verbose:
             print("rows:")
         elements += route_spine(board, NetClass.ROW, DIODE_FOOTPRINTS,
-                                offset=ROW_OFFSET, verbose=args.verbose)
+                                offset=ROW_OFFSET, spines=spines,
+                                verbose=args.verbose)
         if args.verbose:
             print("matrix links:")
         elements += route_matrix_links(board, verbose=args.verbose)
-        if args.mcu_fanout:
+        if not args.matrix_only:
+            outline = river.Outline(board.edge)
             if args.verbose:
-                print("MCU fan-out (grid A*):")
-            specs = mcu_fanout_specs(board)
-            fan, unrouted = fanout.route(board, elements, specs,
-                                         verbose=args.verbose)
-            elements += fan
-            if unrouted:
-                print(f"fan-out: {len(unrouted)} net(s) unrouted: {unrouted}")
-        print(f"routed {len(elements)} matrix elements")
+                print("column river (B.Cu lanes along the north edge):")
+            elements += river.route_column_river(board, outline,
+                                                 verbose=args.verbose)
+            if args.verbose:
+                print("near rows:")
+            elements += river.route_near_rows(board, verbose=args.verbose)
+            if args.verbose:
+                print("boxed rows (B.Cu under the MCU):")
+            elements += river.route_boxed_rows(board, outline, spines,
+                                               verbose=args.verbose)
+            if args.verbose:
+                print("power:")
+            elements += river.route_power(board, outline, verbose=args.verbose)
+        print(f"routed {len(elements)} elements")
 
         if args.dry_run:
             return 0

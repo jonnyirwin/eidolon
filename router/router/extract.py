@@ -38,8 +38,10 @@ class PadFact:
     net_code: int      # KiCad numeric net id
     layer: str         # primary copper layer ("F.Cu" / "B.Cu")
     cu_layers: list[str]  # all copper layers (>1 => through-hole)
-    x: float           # absolute x in mm
+    x: float           # absolute x in mm (pad origin = drill centre for PTH)
     y: float           # absolute y in mm
+    cx: float          # copper centre x in mm (offset pads: oval shifted off
+    cy: float          # the drill, e.g. the XIAO's castellated pads)
     sx: float          # pad size x in mm
     sy: float          # pad size y in mm
     fp_x: float        # parent footprint origin x in mm
@@ -73,6 +75,16 @@ def extract(in_path: str, out_pcb: str, out_json: str) -> dict:
             # board's real topology: switch pads on B.Cu, diode pads on F.Cu.
             cu_layers = [pcbnew.LayerName(l) for l in pad.GetLayerSet().CuStack()]
             layer = cu_layers[0] if cu_layers else "F.Cu"
+            # the copper shape can sit offset from the pad origin (the XIAO's
+            # castellated ovals put the drill at one end) -- obstacle maths
+            # must use the copper centre, connections the origin.
+            import math as _math
+            offv = pad.GetOffset()
+            rot = _math.radians(pad.GetOrientationDegrees())
+            ox = offv.x / NM_PER_MM
+            oy = offv.y / NM_PER_MM
+            cx = pos.x / NM_PER_MM + ox * _math.cos(rot) - oy * _math.sin(rot)
+            cy = pos.y / NM_PER_MM + ox * _math.sin(rot) + oy * _math.cos(rot)
             pads.append(PadFact(
                 ref=ref,
                 footprint=name,
@@ -83,6 +95,8 @@ def extract(in_path: str, out_pcb: str, out_json: str) -> dict:
                 cu_layers=cu_layers,
                 x=pos.x / NM_PER_MM,
                 y=pos.y / NM_PER_MM,
+                cx=cx,
+                cy=cy,
                 sx=pad.GetSize().x / NM_PER_MM,
                 sy=pad.GetSize().y / NM_PER_MM,
                 fp_x=fpos.x / NM_PER_MM,
@@ -93,7 +107,10 @@ def extract(in_path: str, out_pcb: str, out_json: str) -> dict:
     # No-net mechanical drills (choc poles + stabiliser holes, mounting holes).
     # These are skipped above (no net) but are hard obstacles for the fan-out
     # router -- a trace over a 3.4mm choc pole shorts nothing but fails DRC.
+    # No-net *plated* pads (e.g. the XIAO's RESET/SWCLK bottom pads) are copper
+    # obstacles on every layer; export them separately as keepouts.
     holes = []
+    keepouts = []
     for fp in board.GetFootprints():
         for pad in fp.Pads():
             if pad.GetAttribute() == pcbnew.PAD_ATTRIB_NPTH:
@@ -102,6 +119,16 @@ def extract(in_path: str, out_pcb: str, out_json: str) -> dict:
                     "x": pos.x / NM_PER_MM,
                     "y": pos.y / NM_PER_MM,
                     "d": pad.GetDrillSize().x / NM_PER_MM,
+                })
+            elif not (pad.GetNet() and pad.GetNet().GetNetname()):
+                pos = pad.GetPosition()
+                keepouts.append({
+                    "ref": fp.GetReference(),
+                    "pad": pad.GetName(),
+                    "x": pos.x / NM_PER_MM,
+                    "y": pos.y / NM_PER_MM,
+                    "sx": pad.GetSize().x / NM_PER_MM,
+                    "sy": pad.GetSize().y / NM_PER_MM,
                 })
 
     # Edge.Cuts geometry, arcs sampled to short chords, for the router's keep-out
@@ -139,11 +166,37 @@ def extract(in_path: str, out_pcb: str, out_json: str) -> dict:
         },
         "pads": [asdict(p) for p in pads],
         "holes": holes,
+        "keepouts": keepouts,
         "edge": edge,
     }
     with open(out_json, "w") as fh:
         json.dump(data, fh, indent=1)
     return data
+
+
+def shift_into_page(in_path: str, out_path: str, margin_mm: float = 25.0) -> None:
+    """Save a copy of the board translated so its bbox starts at (margin, margin).
+
+    Ergogen places the board around the origin, so much of it sits at *negative*
+    coordinates -- KiCad's plotter silently clips anything off the page, which
+    truncated every render checkpoint. The shifted copy is for rendering only;
+    the routed output keeps Ergogen's coordinates."""
+    import pcbnew
+
+    board = pcbnew.LoadBoard(in_path)
+    bbox = board.GetBoardEdgesBoundingBox()
+    dx = int(margin_mm * NM_PER_MM) - bbox.GetX()
+    dy = int(margin_mm * NM_PER_MM) - bbox.GetY()
+    vec = pcbnew.VECTOR2I(dx, dy)
+    for fp in board.GetFootprints():
+        fp.Move(vec)
+    for t in board.GetTracks():
+        t.Move(vec)
+    for d in board.GetDrawings():
+        d.Move(vec)
+    for z in board.Zones():
+        z.Move(vec)
+    pcbnew.SaveBoard(out_path, board)
 
 
 def main() -> None:
