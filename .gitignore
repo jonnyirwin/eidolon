@@ -12,6 +12,9 @@ __pycache__/
 # Generated router render + view artifacts (open locally in KiCad, not source)
 router/*.png
 router/routed_*.kicad_pcb
+router/phantom_panel.kicad_pcb
+router/phantom_panel.kicad_dru
+router/*-drc.rpt
 router/*.kicad_pro
 router/*.kicad_prl
 router/fp-lib-table
