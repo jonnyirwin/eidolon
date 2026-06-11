@@ -92,12 +92,15 @@ lip_b_flat  = 0.4;        // lip B's flat retention width at the inner end
 // the cell drops in from below before the PCB is seated; wires bend up to F.Cu
 // pads on the PCB top (5mm apart, see footprints/battery.js). Bottom of the
 // pocket is open to the under-PCB cavity (which the bottom shell will close).
-bat_pos    = [59.25, 80.0];  // KiCad — palm-rest area, clear of every keycap pad
+bat_pos    = [59.625, 80.0]; // KiCad — palm-rest area, clear of every keycap pad
 bat_rot    = 0;              // long axis along x (-90 = along y)
-bat_x      = 39.5;           // pocket length: cell 30 + wire well at -x end; the
-                             // -x wall sits at 39.5 so the battery pads' copper
-                             // (west edge 40.75) keeps 1.25mm clearance for the
-                             // solder fillets under the pocket roof
+bat_x      = 38.75;          // pocket: 301230 cell (30) + 0.5 at +x + 8.25 wire
+                             // well at -x. The well must hold the pad pair's
+                             // 8.5mm copper span (TOTEM 5mm pitch, 2.5mm pads):
+                             // moving the pads instead doesn't work — east puts
+                             // pad-2 solder under the cell (0.25 margin), west
+                             // pokes pad 1 out the wall. -x wall at 40.25 keeps
+                             // 0.5 to pad-1 copper and 1.15 to the BL bolt shaft
 bat_y      = 14.0;           // pocket width (cell 12 + 1mm each side)
 bat_depth  = 3.5;            // cell + 0.5 clearance above plate_bot
 // MSK-12D19 power switch — through-hole SPDT on the PCB right edge with the
