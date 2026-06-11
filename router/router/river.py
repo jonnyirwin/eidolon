@@ -436,13 +436,12 @@ def route_near_rows(board: Board, verbose: bool = False) -> list[str]:
             # anchored to the MCU / destination pads, mirror-scaled by ``e``.
             wps = [mp.xy,
                    (mp.x - e * 2.18, mp.y),
-                   (mp.x - e * 2.18, mp.y - 9.11),
-                   (mp.x - e * 4.78, mp.y - 10.51),
-                   (mp.x - e * 9.38, mp.y - 10.41),
-                   (mp.x - e * 10.43, mp.y - 11.71),
-                   (mp.x - e * 10.53, mp.y - 14.01),
-                   (att.x + e * 16.35, att.y + 0.10),
-                   (att.x + e * 8.35, att.y + 0.05),
+                   (mp.x - e * 2.18, mp.y - 13.41),
+                   (mp.x - e * 4.88, mp.y - 13.41),
+                   (mp.x - e * 9.68, mp.y - 13.56),
+                   (mp.x - e * 10.48, mp.y - 14.26),
+                   (att.x + e * 16.35, att.y + 1.35),
+                   (att.x + e * 8.35, att.y + 1.30),
                    att.xy]
             path = round_corners(wps, cut=1.8)
         else:
@@ -564,10 +563,10 @@ def _route_boxed_rows_right(board: Board, far, spines, verbose=False) -> list[st
                    (mp.x + 4.52, mp.y),
                    (mp.x + 5.52, mp.y - 0.61),
                    (dive_x, mp.y - 0.61),
-                   (dive_x, att.y - 0.55),
-                   (att.x - 17.45, att.y - 0.55),
-                   (att.x - 16.8, att.y + 1.25),
-                   (att.x - 1.05, att.y + 1.25),
+                   (dive_x, att.y + 0.70),
+                   (att.x - 17.45, att.y + 0.70),
+                   (att.x - 16.8, att.y + 2.50),
+                   (att.x - 1.05, att.y + 2.50),
                    att.xy]
         else:
             # home row: ride its own row, hop north over the GND branch via,
@@ -578,10 +577,10 @@ def _route_boxed_rows_right(board: Board, far, spines, verbose=False) -> list[st
                    (mp.x + 9.22, mp.y),
                    (mp.x + 9.92, mp.y - 1.65),
                    (dive_x, mp.y - 1.65),
-                   (dive_x, att.y - 8.55),
-                   (att.x - 4.65, att.y - 8.55),
-                   (att.x - 4.65, att.y + 1.75),
-                   (att.x, att.y + 1.75),
+                   (dive_x, att.y - 7.30),
+                   (att.x - 4.65, att.y - 7.30),
+                   (att.x - 4.65, att.y + 2.00),
+                   (att.x, att.y + 2.00),
                    att.xy]
         elements += kwrite.curve(round_corners(wps, cut=1.4), SIG_W,
                                  "F.Cu", net.code, tol=ARC_TOL)

@@ -282,7 +282,11 @@ pcbs:
         what: diode_sod123
         where: *left_keys
         adjust:
-          shift: [0, -5.95]  # centre of Choc south LED notch
+          shift: [0, -4.70]  # centre of the Choc v1 LED cutout: the body window
+                             # spans y 3.075..6.325, x +/-2.65 (ceoloide choc
+                             # footprint reference); the old -5.95 (contact-row
+                             # offset) left the diode body 1.25mm south of
+                             # centre, fouling the housing wall
         params: &diode_params
           from: "{{name}}"    # COL2ROW: node -> diode -> row
           to: "{{row_net}}"
@@ -359,7 +363,11 @@ pcbs:
         what: diode_sod123
         where: *right_keys
         adjust:
-          shift: [0, -5.95]  # centre of Choc south LED notch
+          shift: [0, -4.70]  # centre of the Choc v1 LED cutout: the body window
+                             # spans y 3.075..6.325, x +/-2.65 (ceoloide choc
+                             # footprint reference); the old -5.95 (contact-row
+                             # offset) left the diode body 1.25mm south of
+                             # centre, fouling the housing wall
         params: *diode_params
       mcu:
         what: xiao_ble

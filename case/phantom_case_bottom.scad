@@ -91,7 +91,7 @@ module bolt_shafts()
     for (b = bolts)
         translate([b[0], b[1], -floor_t - 1])
             linear_extrude(lip_h + floor_t + 2)
-                circle(d = m2_shaft_d, $fn = 32);
+                circle(d = m2_shaft_d, $fn = 96);
 
 module bottom_case()
     mirror([0, 1, 0])

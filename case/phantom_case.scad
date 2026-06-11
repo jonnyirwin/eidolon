@@ -92,9 +92,12 @@ lip_b_flat  = 0.4;        // lip B's flat retention width at the inner end
 // the cell drops in from below before the PCB is seated; wires bend up to F.Cu
 // pads on the PCB top (5mm apart, see footprints/battery.js). Bottom of the
 // pocket is open to the under-PCB cavity (which the bottom shell will close).
-bat_pos    = [60.0, 80.0];   // KiCad — palm-rest area, clear of every keycap pad
+bat_pos    = [59.25, 80.0];  // KiCad — palm-rest area, clear of every keycap pad
 bat_rot    = 0;              // long axis along x (-90 = along y)
-bat_x      = 38.0;           // pocket length: cell 30 + 7.5mm wire well at -x end + 0.5 at +x
+bat_x      = 39.5;           // pocket length: cell 30 + wire well at -x end; the
+                             // -x wall sits at 39.5 so the battery pads' copper
+                             // (west edge 40.75) keeps 1.25mm clearance for the
+                             // solder fillets under the pocket roof
 bat_y      = 14.0;           // pocket width (cell 12 + 1mm each side)
 bat_depth  = 3.5;            // cell + 0.5 clearance above plate_bot
 // MSK-12D19 power switch — through-hole SPDT on the PCB right edge with the
@@ -118,8 +121,8 @@ bolts = [
 m2_head_d  = 4.5;  // socket cap head pocket dia (3.8mm head + 0.7 clearance)
 m2_head_h  = 2.0;  // head pocket depth = head height -> head top flush w/ deck
 m2_shaft_d = 2.2;  // bolt shaft clearance hole
-arc_n  = 24;     // points sampled per arc corner
-$fn = 64;
+arc_n  = 64;     // points sampled per arc corner
+$fn = 128;
 
 // ---- Edge.Cuts vertices (exact KiCad coords, mm, y-down) ----
 P1  = [ 39.624000, 16.718000];  // -0.3mm top-edge relief (routing lanes; matches both PCBs)
@@ -280,7 +283,7 @@ module rrect_y(w, h, depth, r)
         for (sx = [-1, 1], sz = [-1, 1])
             translate([sx*(w/2 - r), 0, sz*(h/2 - r)])
                 rotate([-90, 0, 0])
-                    cylinder(h = depth, r = r, $fn = 32);
+                    cylinder(h = depth, r = r, $fn = 96);
 
 // USB-C port: flatten the slanted top-right wall with a rounded-rect recess that
 // stops usb_wall short of the pocket (leaving a flat face), then drive the
@@ -386,7 +389,7 @@ module body()
         linear_extrude(height - top_r)
             offset(r = gap + wall - top_r) polygon(outline);
         intersection() {
-            sphere(r = top_r, $fn = 16);
+            sphere(r = top_r, $fn = 48);
             translate([0, 0, top_r / 2])
                 cube([2*top_r + 0.1, 2*top_r + 0.1, top_r + 0.1], center = true);
         }
@@ -397,10 +400,10 @@ module bolt_holes()
     for (b = bolts) {
         translate([b[0], b[1], height - m2_head_h])
             linear_extrude(m2_head_h + 0.1)
-                circle(d = m2_head_d, $fn = 32);
+                circle(d = m2_head_d, $fn = 96);
         translate([b[0], b[1], -1])
             linear_extrude(height + 2)
-                circle(d = m2_shaft_d, $fn = 32);
+                circle(d = m2_shaft_d, $fn = 96);
     }
 
 // Full top-case shape (y-down KiCad frame, then mirror([0,1,0]) flips to the

@@ -31,8 +31,11 @@ from .model import Board, NetClass
 SIGNAL_WIDTH = 0.25  # mm, min signal trace width from the design rules
 VIA_DRILL = 0.3      # mm, from the design brief (matrix_transition.drill)
 VIA_SIZE = 0.6       # mm, drill + 2 * 0.15 annular ring
-MATRIX_DETOUR = 6.0  # mm, south drop (switch local +y) so the matrix-link B.Cu
-                     # run rounds the switch body instead of cutting its NPTHs
+MATRIX_DETOUR = 4.75  # mm, south drop (switch local +y) so the matrix-link B.Cu
+                      # run rounds the switch body instead of cutting its NPTHs.
+                      # Tracks the diode position (LED-cutout centre, +4.70 from
+                      # the switch): the via->pad1 leg keeps its original angle
+                      # past the diode's pad 2
 
 # Footprints whose pads a matrix spine threads. The MCU GPIO pad that also sits
 # on each matrix net is a fan-out endpoint handled in a later milestone, so any
@@ -274,6 +277,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--matrix-only", action="store_true",
                     help="route only the switch matrix (skip the MCU fan-out "
                          "river and power rails)")
+    ap.add_argument("--no-pour", action="store_true",
+                    help="skip the filled GND pours (F.Cu + B.Cu, with a "
+                         "copper keepout under the XIAO module)")
     args = ap.parse_args(argv)
 
     with tempfile.TemporaryDirectory() as td:
@@ -326,6 +332,11 @@ def main(argv: list[str] | None = None) -> int:
         with open(args.output, "w") as fh:
             fh.write(routed)
         print(f"wrote {args.output}")
+
+    if not args.matrix_only and not args.no_pour:
+        from .extract import add_gnd_pours
+        add_gnd_pours(args.output)
+        print("filled GND pours (F.Cu + B.Cu, MCU keepout)")
 
     if args.render:
         render_checkpoint(args.output, args.render)

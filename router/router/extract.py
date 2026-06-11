@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from dataclasses import dataclass, asdict
 
 
@@ -172,6 +173,88 @@ def extract(in_path: str, out_pcb: str, out_json: str) -> dict:
     with open(out_json, "w") as fh:
         json.dump(data, fh, indent=1)
     return data
+
+
+def add_gnd_pours(pcb_path: str) -> None:
+    """Add filled GND pours (F.Cu + B.Cu) to a routed board, with a copper-pour
+    keepout under the XIAO module (best practice: no fill under the MCU -- the
+    nRF52840 antenna wants clear board; Seeed's guidance. Tracks stay allowed).
+
+    Zone settings follow the project's manual-pour recipe: 0.508 clearance,
+    0.254 min width, thermal reliefs 0.508/0.508, islands removed."""
+    import pcbnew
+
+    # JLCPCB wants >=0.3 mm copper-to-NPTH; the fill hugs holes at the board
+    # hole-clearance rule (0.25 from ergogen), so raise it before filling.
+    # The routed copper's tightest hole approach is 0.315, so DRC still passes.
+    # The filler's DRC engine compiles rules at LOAD time, so the new value
+    # must take a save/reload round-trip before filling.
+    board = pcbnew.LoadBoard(pcb_path)
+    board.GetDesignSettings().m_HoleClearance = int(0.3 * NM_PER_MM)
+    pcbnew.SaveBoard(pcb_path, board)
+    board = pcbnew.LoadBoard(pcb_path)
+    gnd = board.GetNetcodeFromNetname("GND")
+    if gnd <= 0:
+        raise ValueError("no GND net on board")
+
+    # keepout rule area under the MCU module (full body + 0.75 mm margin)
+    mcu = next((fp for fp in board.GetFootprints()
+                if str(fp.GetFPID().GetLibItemName()) == "xiao_ble"), None)
+    if mcu is not None:
+        pos = mcu.GetPosition()
+        rot = math.radians(mcu.GetOrientationDegrees())
+        hw, hl = 9.5, 11.25            # module 17.5 x 21 plus margin, halves
+        ka = pcbnew.ZONE(board)
+        ka.SetIsRuleArea(True)
+        ka.SetDoNotAllowCopperPour(True)
+        ka.SetDoNotAllowTracks(False)
+        ka.SetDoNotAllowVias(False)
+        ka.SetDoNotAllowPads(False)
+        ka.SetDoNotAllowFootprints(False)
+        ls = pcbnew.LSET()
+        ls.AddLayer(pcbnew.F_Cu)
+        ls.AddLayer(pcbnew.B_Cu)
+        ka.SetLayerSet(ls)
+        # mutate the zone's own outline: SetOutline() stores the pointer and
+        # Python's garbage collector frees the poly -> ZONE_FILLER segfault
+        o = ka.Outline()
+        o.NewOutline()
+        for dx, dy in ((-hw, -hl), (hw, -hl), (hw, hl), (-hw, hl)):
+            x = pos.x + int((dx * math.cos(rot) - dy * math.sin(rot)) * NM_PER_MM)
+            y = pos.y + int((dx * math.sin(rot) + dy * math.cos(rot)) * NM_PER_MM)
+            o.Append(pcbnew.VECTOR2I(x, y))
+        board.Add(ka)
+
+    # the battery GND pad sits in sparse palm-rest fill where its thermal
+    # spokes land on slivers KiCad flags as starved/islands -- connect solid
+    for fp in board.GetFootprints():
+        if str(fp.GetFPID().GetLibItemName()) == "battery_pads":
+            for pad in fp.Pads():
+                if pad.GetNet() and pad.GetNet().GetNetname() == "GND":
+                    pad.SetLocalZoneConnection(pcbnew.ZONE_CONNECTION_FULL)
+
+    bb = board.GetBoardEdgesBoundingBox()
+    for layer in (pcbnew.F_Cu, pcbnew.B_Cu):
+        z = pcbnew.ZONE(board)
+        z.SetLayer(layer)
+        z.SetNetCode(gnd)
+        z.SetLocalClearance(int(0.508 * NM_PER_MM))
+        z.SetMinThickness(int(0.254 * NM_PER_MM))
+        z.SetThermalReliefGap(int(0.508 * NM_PER_MM))
+        z.SetThermalReliefSpokeWidth(int(0.508 * NM_PER_MM))
+        z.SetPadConnection(pcbnew.ZONE_CONNECTION_THERMAL)
+        z.SetIslandRemovalMode(pcbnew.ISLAND_REMOVAL_MODE_ALWAYS)
+        z.SetHatchStyle(pcbnew.ZONE_BORDER_DISPLAY_STYLE_DIAGONAL_EDGE)
+        o = z.Outline()
+        o.NewOutline()
+        for cx, cy in ((bb.GetLeft(), bb.GetTop()), (bb.GetRight(), bb.GetTop()),
+                       (bb.GetRight(), bb.GetBottom()), (bb.GetLeft(), bb.GetBottom())):
+            o.Append(pcbnew.VECTOR2I(cx, cy))
+        board.Add(z)
+
+    filler = pcbnew.ZONE_FILLER(board)
+    filler.Fill(board.Zones())
+    pcbnew.SaveBoard(pcb_path, board)
 
 
 def shift_into_page(in_path: str, out_path: str, margin_mm: float = 25.0) -> None:
