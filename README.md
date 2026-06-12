@@ -16,7 +16,7 @@ A small column-staggered wireless split keyboard. 30 keys (5×3 + 2 thumb per ha
 |----------|----------------------|
 | [**Phantom**](https://github.com/davidphilipbarr/Phantom) by davidphilipbarr | PCB layout source — key positions reverse-engineered from `lephantom.kicad_pcb`; board outline traced from the original `Edge.Cuts`. Eidolon matches the original key centres to < 0.15 mm. |
 | [**TOTEM**](https://github.com/GEIGEIGEIST/TOTEM) by GEIGEIGEIST | Case design reference — switch hole dimensions, keycap recess depth, clamshell geometry, and hot-swap socket pocket profiles all taken from the Totem STEP file and silkscreen. Diode placement in the Choc south LED cutout is also a Totem technique. |
-| [**Rufous**](https://github.com/jcmkk3/rufous) by jcmkk3 | XIAO BLE footprint — `pcb/footprints/xiao_pogo.js` is adapted from the Rufous design. |
+| [**Rufous**](https://github.com/jcmkk3/trochilidae/) by jcmkk3 | XIAO BLE footprint — `pcb/footprints/xiao_pogo.js` is adapted from the Rufous design. |
 
 ## PCB
 
