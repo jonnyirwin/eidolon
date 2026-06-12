@@ -1,12 +1,12 @@
+> ⚠️ **Work in progress — do not build this yet.** The PCB, case, and firmware have not been validated against a physical build. Things will change, things may be wrong. Watch the commits if you want to follow along, but don't order boards from these files yet.
+
+# Eidolon
+
 > **eidolon** /aɪˈdoʊlɒn/ *noun*
 > An idealized image; a phantom or spectre of a person or thing.
 > — from Greek εἴδωλον *(image, idol, phantom)*
 
 ---
-
-> ⚠️ **Work in progress — do not build this yet.** The PCB, case, and firmware have not been validated against a physical build. Things will change, things may be wrong. Watch the commits if you want to follow along, but don't order boards from these files yet.
-
-# Eidolon
 
 A small column-staggered wireless split keyboard. 30 keys (5×3 + 2 thumb per half), Kailh Choc v1 switches, Seeed XIAO nRF52840 BLE, Totem-style clamshell case. Both halves are independent wireless units — no TRRS cable.
 
