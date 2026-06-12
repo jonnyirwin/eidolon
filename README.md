@@ -20,10 +20,13 @@ The PCB layout is a clean Ergogen recreation of [davidphilipbarr/Phantom](https:
 
 ## Case
 
-| Top shells | Bottom shells |
-|------------|--------------|
-| ![Case left](images/case_left.png) | ![Case bottoms](images/case_bottoms.png) |
-| ![Case right](images/case_right.png) | |
+| Top — left | Top — right |
+|------------|-------------|
+| ![Case top left](images/case_left.png) | ![Case top right](images/case_right.png) |
+
+| Bottom — left | Bottom — right |
+|---------------|----------------|
+| ![Case bottom left](images/case_bottom_left.png) | ![Case bottom right](images/case_bottom_right.png) |
 
 ---
 
