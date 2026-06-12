@@ -155,6 +155,12 @@ Angle the acrylic, slip the +y edge under the square lip (lip A), press the −y
 
 ---
 
+## Firmware
+
+ZMK firmware for the Eidolon is available at [jonnyirwin/zmk-keyboard-eidolon](https://github.com/jonnyirwin/zmk-keyboard-eidolon).
+
+---
+
 ## Deviations from the original Phantom
 
 - **Mirrored L/R** instead of a single reversible board.
