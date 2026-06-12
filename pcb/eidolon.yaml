@@ -1,11 +1,11 @@
-# Phantom — Ergogen recreation (faithful baseline)
+# Eidolon — Ergogen keyboard (faithful baseline)
 #
-# Recreates davidphilipbarr/Phantom (single reversible Choc board) as a
-# standard mirrored left/right pair in Ergogen.
+# A small column-staggered wireless split, designed in Ergogen.
+
 #
-# Source of truth for geometry: lephantom.kicad_pcb switch coordinates
+# Geometry reverse-engineered from lephantom.kicad_pcb switch coordinates
 # (idealised into clean stagger/spread/splay — matches originals to <1 mm).
-# Source of truth for wiring: jonnyirwin/phantom_qmk_config (QMK DIRECT_PINS).
+
 #
 # Baseline = original hardware: Pro Micro, TRRS split, hotswap Choc, NO diodes
 # (each switch wired straight to one Pro Micro GPIO + GND), reset button.
@@ -256,7 +256,7 @@ outlines:
       corner: 1
 
 pcbs:
-  # Left half places footprints on the source points; right half (phantom_right)
+  # Left half places footprints on the source points; right half (eidolon_right)
   # reuses the same definitions with asym=clone / a mirror-name filter, so Ergogen
   # auto-flips footprint sides and x-offsets onto the mirrored points.
   # Each half is an independent wireless unit: its own XIAO BLE + battery +
@@ -264,7 +264,7 @@ pcbs:
   # per-key node; the diode joins that node to row_net.
   # XIAO GPIO: cols C0-C4 -> D0-D4, rows R0-R3 -> D5-D8.
   # Power: battery+ -> RAW_BATT -> power switch -> BATT -> XIAO B+; battery- -> GND.
-  phantom_left:
+  eidolon_left:
     outlines:
       main:
         outline: board_left
@@ -326,7 +326,7 @@ pcbs:
           A: RAW_BATT         # from battery +
           B: BATT             # to XIAO B+
           C: PWR_NC           # off position (unconnected)
-      # M2 case-to-case mounting holes — positions mirror bolts[] in phantom_case.scad.
+      # M2 case-to-case mounting holes — positions mirror bolts[] in eidolon_case.scad.
       # Shift = [case_x - 116, 37.27 - case_y], where case->board is (x-80, y-58.97)
       # and matrix_inner_home sits at board (36, -21.70). (The earlier y-shifts were
       # sign-flipped — Ergogen y-up vs KiCad y-down — placing these off the board.)
@@ -350,7 +350,7 @@ pcbs:
         where: &mount_br_where
           ref: matrix_inner_home
           shift: [21, -40.73]   # KiCad (137, 78)
-  phantom_right:
+  eidolon_right:
     outlines:
       main:
         outline: board_right

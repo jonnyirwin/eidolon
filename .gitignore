@@ -1,30 +1,20 @@
-# Ergogen build output (regenerate with `npx ergogen config.yaml -o output --svg`)
-output/
+# Ergogen build outputs
+pcb/output/
 
-# Reference clones (kept locally, not part of this repo)
-phantom-src/
+# npm
 node_modules/
 
-# Python bytecode (autorouter)
+# Python
 __pycache__/
 *.pyc
 
-# Generated router render + view artifacts (open locally in KiCad, not source)
-router/*.png
-router/routed_*.kicad_pcb
-router/phantom_panel.kicad_pcb
-router/phantom_panel.kicad_dru
-router/*-drc.rpt
-router/*.kicad_pro
-router/*.kicad_prl
-router/fp-lib-table
-router/fp-info-cache
-router/*-backups/
-router/*.lck
+# KiCad temporaries
+*.kicad_prl
+fp-lib-table
+fp-info-cache
+*-backups/
+*.lck
+*-drc.rpt
 
-# OpenSCAD/STL build artifacts & reference STEP/STL files
-*.stl
-*.STL
-*.step
-*.STEP
-case/*.png
+# Local reference clones
+phantom-src/

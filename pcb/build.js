@@ -36,7 +36,7 @@ const composite = (data, rel) => {
 };
 
 (async () => {
-  const raw = fs.readFileSync(path.join(__dirname, 'config.yaml'), 'utf8');
+  const raw = fs.readFileSync(path.join(__dirname, 'eidolon.yaml'), 'utf8');
   const results = await ergogen.process(raw, { debug, svg: true }, console.log);
   fs.rmSync(OUT, { recursive: true, force: true });
   for (const [n, o] of Object.entries(results.outlines || {})) composite(o, `outlines/${n}`);

@@ -1,9 +1,9 @@
-// Phantom case — BOTTOM SHELL.
-// Nests inside phantom_case.scad. Sits below the PCB and pushes it up against
+// Eidolon case — BOTTOM SHELL.
+// Nests inside eidolon_case.scad. Sits below the PCB and pushes it up against
 // the top case's plate. Shares outline / switches / bolts / plate_bot with
 // the top SCAD via `include` (SUPPRESS_TOP=true skips the top render).
 //
-//   openscad -o phantom_case_bottom.stl case/phantom_case_bottom.scad
+//   openscad -o eidolon_case_bottom_left.stl case/eidolon_case_bottom.scad
 //
 // Geometry (z-up, KiCad y-down — final mirror flips y):
 //   z ∈ [-floor_t, 0] : exterior plate, outer = outline + gap + wall, matches
@@ -21,7 +21,7 @@
 //   - M2 shaft holes through the whole shell.
 
 SUPPRESS_TOP = true;
-include <phantom_case.scad>;
+include <eidolon_case.scad>;
 
 // === bottom-shell dimensions ===
 pcb_t           = 1.6;                 // PCB thickness
@@ -105,7 +105,7 @@ module bottom_case()
 // Preview: render top + bottom together for fit check. EXPLODED > 0 lifts the
 // top by that many mm; 0 = fully assembled. `right` (from the included top
 // SCAD, or -D right=true) mirrors the build for the right half:
-//   openscad -D right=true -o phantom_case_bottom_right.stl case/phantom_case_bottom.scad
+//   openscad -D right=true -o eidolon_case_bottom_right.stl case/eidolon_case_bottom.scad
 PREVIEW  = false;
 EXPLODED = 6;
 

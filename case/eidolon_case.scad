@@ -1,4 +1,4 @@
-// Phantom case — BOTH halves (left geometry; right = mirrored build).
+// Eidolon case — BOTH halves (left geometry; right = mirrored build).
 // Outline from the PCB Edge.Cuts of lephantom.kicad_pcb (6 lines + 5 arcs,
 // exact mm coordinates) plus the two routing reliefs now carried by BOTH
 // ergogen PCBs (P1/P2 top edge -0.3mm, P10/P11 pinky edge -0.7mm), so the two
@@ -9,8 +9,8 @@
 //   wall = 2.0mm  case wall thickness
 // then extruded. This pass produces the solid outer shape only.
 //
-//   openscad -o phantom_case_left.stl  case/phantom_case.scad
-//   openscad -D right=true -o phantom_case_right.stl case/phantom_case.scad
+//   openscad -o eidolon_case_top_left.stl  case/eidolon_case.scad
+//   openscad -D right=true -o eidolon_case_top_right.stl case/eidolon_case.scad
 //
 // Right-half fit (verified against the routed ergogen boards): every
 // footprint origin mirrors exactly (x_left + x_right = 170, same y), and the
@@ -171,7 +171,7 @@ function arc_pts(p0, pm, p1, n=arc_n) =
 // (vertical) edge out by pcb_pad (the ergogen boards carry the same +pcb_pad
 // edge). The upper-right corner — fillet tangent points T / P2t, arc mid M_t,
 // and the vertical-edge corner Pc — is taken VERBATIM from the as-built
-// ergogen board (output/pcbs/phantom_left.kicad_pcb Edge.Cuts, frame offset
+// ergogen board (pcb/eidolon_left.kicad_pcb Edge.Cuts, frame offset
 // +80, +58.97). It was originally derived parametrically here; after the
 // -0.3mm top-edge relief the board's stored arc is the source of truth, and
 // re-deriving tangency would cut up to 0.15mm inside the PCB edge.
@@ -200,7 +200,7 @@ outline = concat(
 
 // ---- Choc switch positions, from the routed ergogen board (KiCad coords) ----
 // [x, y, rotation_deg] — the 15 PG1350 footprint origins of phantom_left,
-// extracted from output/pcbs/phantom_left.kicad_pcb (frame offset +80, +58.97
+// extracted from pcb/eidolon_left.kicad_pcb (frame offset +80, +58.97
 // from the ergogen origin). These ARE the as-built positions; the previous
 // list was traced from the original lephantom.kicad_pcb and deviated up to
 // 0.154mm from the ergogen recreation.
@@ -410,7 +410,7 @@ module bolt_holes()
     }
 
 // Full top-case shape (y-down KiCad frame, then mirror([0,1,0]) flips to the
-// upright view). Exposed as a module so phantom_case_bottom.scad can include
+// upright view). Exposed as a module so eidolon_case_bottom.scad can include
 // it in a preview render.
 module top_case()
     mirror([0, 1, 0])
@@ -427,7 +427,7 @@ module top_case()
             bolt_holes();
         }
 
-// SUPPRESS_TOP lets phantom_case_bottom.scad `include` this file for shared
+// SUPPRESS_TOP lets eidolon_case_bottom.scad `include` this file for shared
 // geometry (outline, switches, bolts, top_case module) without also rendering
 // the top case here. `right` mirrors the build for the right half.
 if (is_undef(SUPPRESS_TOP)) {
